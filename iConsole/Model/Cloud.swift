@@ -10,6 +10,8 @@ final class StorageLocation: @unchecked Sendable {
 	let accounts: URL
 	/// 그룹 이름과 순서 (계정이 없는 그룹도 있다)
 	let groups: URL
+	/// 사이트 아이콘 그림(<아이콘 주소 SHA256>.png)과 페이지 → 아이콘 짝(pages.json). 공개된 그림이라 맥끼리 같이 쓴다
+	let favicons: URL
 	let isCloud: Bool
 
 	static let local: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -24,8 +26,10 @@ final class StorageLocation: @unchecked Sendable {
 		let root = cloud ?? Self.local
 		accounts = root.appendingPathComponent("Accounts", isDirectory: true)
 		groups = root.appendingPathComponent("groups.json")
+		favicons = root.appendingPathComponent("Favicons", isDirectory: true)
 		isCloud = cloud != nil
 		try? fm.createDirectory(at: accounts, withIntermediateDirectories: true)
+		try? fm.createDirectory(at: favicons, withIntermediateDirectories: true)
 		Self.moveTabsBack(from: root.appendingPathComponent("Tabs", isDirectory: true))
 	}
 
@@ -74,6 +78,15 @@ final class StorageLocation: @unchecked Sendable {
 		return out
 	}
 
+	/// 아직 안 받은 iCloud 파일이면 받기를 시작한다 (받으면 CloudWatcher 가 알려 준다). 그런 파일이면 true
+	@discardableResult
+	static func downloadIfPlaceholder(_ target: URL) -> Bool {
+		let placeholder = target.deletingLastPathComponent().appendingPathComponent("." + target.lastPathComponent + ".icloud")
+		guard FileManager.default.fileExists(atPath: placeholder.path) else { return false }
+		try? FileManager.default.startDownloadingUbiquitousItem(at: target)
+		return true
+	}
+
 	static func remove(_ target: URL) {
 		var error: NSError?
 		NSFileCoordinator().coordinate(writingItemAt: target, options: .forDeleting, error: &error) { u in
@@ -93,7 +106,7 @@ final class CloudWatcher: NSObject, @unchecked Sendable {
 		guard StorageLocation.shared.isCloud else { return }
 		self.onChange = onChange
 		query.searchScopes = [NSMetadataQueryUbiquitousDataScope]
-		query.predicate = NSPredicate(format: "%K LIKE '*.json'", NSMetadataItemFSNameKey)
+		query.predicate = NSPredicate(format: "%K LIKE '*.json' OR %K LIKE '*.png'", NSMetadataItemFSNameKey, NSMetadataItemFSNameKey)
 		NotificationCenter.default.addObserver(self, selector: #selector(changed), name: .NSMetadataQueryDidFinishGathering, object: query)
 		NotificationCenter.default.addObserver(self, selector: #selector(changed), name: .NSMetadataQueryDidUpdate, object: query)
 		query.start()

@@ -47,6 +47,7 @@ final class AppModel {
 
 	private func reloadFromCloud() {
 		store.load()
+		Favicons.shared.reload()
 		for (id, s) in sessions where store.account(id) == nil {
 			s.tearDown()
 			sessions[id] = nil

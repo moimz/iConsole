@@ -7,7 +7,8 @@ import Observation
 /// 호스트 하나에 아이콘 하나로 두면 AWS 콘솔처럼 한 호스트 안에 서비스마다 아이콘이 다른 곳(Lightsail·S3·결제)에서
 /// 마지막에 본 아이콘이 모든 탭·즐겨찾기를 덮었다 (사용자 2026-11-23) →
 /// 페이지 열쇠(호스트 + 첫 경로, 예: console.aws.amazon.com/s3) → 그 페이지가 알려 준 아이콘 주소 → 그림.
-/// 그림은 이 맥 Caches/iConsole/Favicons/<아이콘 주소 SHA256>.png, 페이지 → 아이콘 주소 짝은 pages.json
+/// 그림은 iCloud Drive Data/Favicons/<아이콘 주소 SHA256>.png, 페이지 → 아이콘 주소 짝은 pages.json — 맥끼리 같이 쓴다
+/// (iVNC 썸네일 iCloud 처럼, 사용자 2026-11-23). 한 맥에서 받은 아이콘을 다른 맥은 그 페이지에 안 가 봐도 보인다
 @Observable @MainActor
 final class Favicons {
 	static let shared = Favicons()
@@ -18,15 +19,44 @@ final class Favicons {
 	@ObservationIgnored private var loading: Set<String> = []
 	@ObservationIgnored private var tried: Set<String> = []
 
-	private static let dir: URL = {
-		let d = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("iConsole/Favicons", isDirectory: true)
-		try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
-		return d
-	}()
+	private static var dir: URL { StorageLocation.shared.favicons }
 	private static var pagesFile: URL { dir.appendingPathComponent("pages.json") }
 
 	init() {
-		if let d = try? Data(contentsOf: Self.pagesFile), let p = try? JSONDecoder().decode([String: String].self, from: d) { pages = p }
+		Self.moveOldCache()
+		pages = Self.readPages()
+	}
+
+	private static func readPages() -> [String: String] {
+		StorageLocation.downloadIfPlaceholder(pagesFile)
+		guard let d = StorageLocation.read(pagesFile), let p = try? JSONDecoder().decode([String: String].self, from: d) else { return [:] }
+		return p
+	}
+
+	/// 빌드 13 까지는 이 맥 Caches/iConsole/Favicons 에 뒀다 → iCloud 폴더로 옮긴다
+	private static func moveOldCache() {
+		let fm = FileManager.default
+		let old = fm.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("iConsole/Favicons", isDirectory: true)
+		guard old.path != dir.path, fm.fileExists(atPath: old.path) else { return }
+		for f in (try? fm.contentsOfDirectory(at: old, includingPropertiesForKeys: nil)) ?? [] where f.pathExtension == "png" {
+			let dst = dir.appendingPathComponent(f.lastPathComponent)
+			if !fm.fileExists(atPath: dst.path), let d = try? Data(contentsOf: f) { StorageLocation.write(d, to: dst) }
+		}
+		if let d = try? Data(contentsOf: old.appendingPathComponent("pages.json")), let mine = try? JSONDecoder().decode([String: String].self, from: d) {
+			var merged = readPages()
+			for (k, v) in mine where merged[k] == nil { merged[k] = v }
+			if let out = try? JSONEncoder().encode(merged) { StorageLocation.write(out, to: pagesFile) }
+		}
+		try? fm.removeItem(at: old)
+	}
+
+	/// 다른 맥에서 바뀌면: 짝을 합치고, 그림이 없던 아이콘을 다시 읽어 본다
+	func reload() {
+		let theirs = Self.readPages()
+		if theirs != pages { pages.merge(theirs) { mine, _ in mine } }
+		for icon in Set(pages.values) where images[icon] == nil {
+			if let d = StorageLocation.read(Self.file(icon)), let i = NSImage(data: d) { images[icon] = i }
+		}
 	}
 
 	private static func file(_ icon: String) -> URL {
@@ -53,7 +83,10 @@ final class Favicons {
 		if !tried.contains(icon) {
 			tried.insert(icon)
 			Task { @MainActor in
-				if let i = NSImage(contentsOf: Self.file(icon)) { images[icon] = i }
+				let f = Self.file(icon)
+				if let d = StorageLocation.read(f), let i = NSImage(data: d) { images[icon] = i }
+				// 다른 맥이 올린 그림이 아직 안 내려왔으면 받기를 시작 (오면 reload 가 넣는다), 아예 없으면 사이트에서 받는다
+				else if StorageLocation.downloadIfPlaceholder(f) { tried.remove(icon) }
 				else if let u = URL(string: icon) { fetch(u) }
 			}
 		}
@@ -66,9 +99,14 @@ final class Favicons {
 		let s = icon.absoluteString
 		if pages[k] != s {
 			pages[k] = s
-			try? JSONEncoder().encode(pages).write(to: Self.pagesFile, options: .atomic)
+			// 다른 맥이 그새 더한 짝을 잃지 않게 파일 것과 합쳐서 쓴다 (이 맥 것이 이긴다)
+			var merged = Self.readPages()
+			merged.merge(pages) { _, mine in mine }
+			pages = merged
+			if let d = try? JSONEncoder().encode(merged) { StorageLocation.write(d, to: Self.pagesFile) }
 		}
-		if images[s] == nil, !FileManager.default.fileExists(atPath: Self.file(s).path) { fetch(icon) }
+		let f = Self.file(s)
+		if images[s] == nil, !FileManager.default.fileExists(atPath: f.path), !StorageLocation.downloadIfPlaceholder(f) { fetch(icon) }
 	}
 
 	private func fetch(_ icon: URL) {
@@ -83,7 +121,7 @@ final class Favicons {
 			let small = Self.resize(img, to: 32)
 			images[s] = small
 			if let tiff = small.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff), let png = rep.representation(using: .png, properties: [:]) {
-				try? png.write(to: Self.file(s), options: .atomic)
+				StorageLocation.write(png, to: Self.file(s))
 			}
 		}
 	}

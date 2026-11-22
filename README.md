@@ -39,7 +39,7 @@ AWS · Lightsail, 구글(Cloud · Play) 콘솔, 애플 개발자 계정을 **계
 | 암호 · OTP | iCloud 키체인 동기화 항목 (서비스 `com.moimz.iConsole`, 접근 그룹 `XSDBV8D2XL.com.moimz.iConsole`) |
 | 계정별 로그인(웹 데이터) | WebKit 저장소 (계정 UUID, 맥마다 따로) |
 | 열린 탭 · 마지막 계정 | 앱 설정(UserDefaults, 맥마다 따로) |
-| 사이트 아이콘 | `~/Library/Caches/iConsole/Favicons/` (페이지 → 아이콘 짝 `pages.json`, 그림은 아이콘 주소별) |
+| 사이트 아이콘 | iCloud Drive 같은 폴더 `Data/Favicons/` (그림은 아이콘 주소별 png, 페이지 → 아이콘 짝 `pages.json`, 맥끼리 동기화) |
 
 iCloud Drive 나 iCloud 키체인을 못 쓰면 이 맥(`~/Library/Application Support/iConsole`, 로그인 키체인)에 두고 사이드바 아래에 "이 맥에만 저장" 이 뜬다.
 
