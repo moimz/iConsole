@@ -62,8 +62,8 @@ final class MCPServer {
 	var enabled: Bool = UserDefaults.standard.bool(forKey: "mcp.enabled") {
 		didSet { UserDefaults.standard.set(enabled, forKey: "mcp.enabled"); restart() }
 	}
-	/// iSQL(8766) 과 겹치지 않게
-	var port: Int = UserDefaults.standard.object(forKey: "mcp.port") as? Int ?? 8767 {
+	/// iSQL(8766) · iVNC(8767) 과 겹치지 않게
+	var port: Int = UserDefaults.standard.object(forKey: "mcp.port") as? Int ?? 8768 {
 		didSet { UserDefaults.standard.set(port, forKey: "mcp.port"); if oldValue != port { restart() } }
 	}
 	var scope: MCPScope = MCPScope(rawValue: UserDefaults.standard.string(forKey: "mcp.scope") ?? "") ?? .current {
