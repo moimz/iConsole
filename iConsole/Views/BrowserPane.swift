@@ -41,19 +41,35 @@ struct BrowserPane: View {
 			}
 			// 동작 자리(.primaryAction)는 제목을 숨긴 창에서 왼쪽부터 흐른다 → 양옆 빈 칸으로 주소칸을 가운데쯤에 (inPlayer 웹 탐색)
 			ToolbarSpacer(.flexible)
-			// Safari 처럼 한 알약 안에 [☆ 주소 ↻] (사용자 2026-11-23: 주소칸은 더 넓게, 새로고침은 주소칸에)
-			ToolbarItemGroup(placement: .primaryAction) {
+			// Safari 처럼 한 알약 안에 [☆ 주소 ↻] (사용자 2026-11-23: 주소칸은 더 넓게, 새로고침은 주소칸에).
+			// 읽는 중 진행 막대가 ☆ 부터 ↻ 까지 알약 전체 아래에 걸치게 하나의 뷰로 만든다 (ToolbarItemGroup 이면 주소칸 아래에만 그릴 수 있었다)
+			ToolbarItem(placement: .primaryAction) {
 				let fav = model.favorite(for: tab?.url, in: session.accountID) != nil
-				Button(fav ? "즐겨찾기 편집" : "즐겨찾기에 추가", systemImage: fav ? "star.fill" : "star") { model.editFavorite() }
+				HStack(spacing: 2) {
+					Button { model.editFavorite() } label: {
+						Image(systemName: fav ? "star.fill" : "star").frame(width: 28, height: 28).contentShape(Rectangle())
+					}
+					.buttonStyle(.plain)
 					.disabled(tab?.url == nil)
 					.help(fav ? "즐겨찾기 편집 (⌘D)" : "즐겨찾기에 추가 (⌘D)")
-				AddressField(url: tab?.url, controller: model.address) { text in
-					guard let u = Self.url(from: text) else { return }
-					if let tab { tab.load(u) } else { session.newTab(u) }
+					AddressField(url: tab?.url, controller: model.address) { text in
+						guard let u = Self.url(from: text) else { return }
+						if let tab { tab.load(u) } else { session.newTab(u) }
+					}
+					.padding(.horizontal, 6)
+					.frame(minWidth: 200, idealWidth: 900, maxWidth: 1200, minHeight: 28, maxHeight: 28)
+					Button {
+						guard let tab else { return }
+						if tab.isLoading { tab.webView.stopLoading() } else { tab.webView.reload() }
+					} label: {
+						Image(systemName: tab?.isLoading == true ? "xmark" : "arrow.clockwise").frame(width: 28, height: 28).contentShape(Rectangle())
+					}
+					.buttonStyle(.plain)
+					.disabled(tab == nil)
+					.help(tab?.isLoading == true ? "멈추기" : "새로고침 (⌘R)")
 				}
 				.padding(.horizontal, 6)
-				.frame(minWidth: 200, idealWidth: 900, maxWidth: 1200, minHeight: 28, maxHeight: 28)
-				// 읽는 중: Safari 처럼 주소칸 아래쪽에 얇은 진행 막대 (예전엔 웹 영역 맨 위에 그렸다, 사용자 2026-11-23)
+				// 읽는 중: Safari 처럼 주소 알약 아래쪽에 얇은 진행 막대
 				.overlay(alignment: .bottomLeading) {
 					if let tab, tab.isLoading {
 						GeometryReader { g in
@@ -62,16 +78,11 @@ struct BrowserPane: View {
 								.frame(maxHeight: .infinity, alignment: .bottom)
 								.animation(.easeOut(duration: 0.2), value: tab.progress)
 						}
-						.offset(y: 3)
+						.padding(.horizontal, 8)
+						.offset(y: 5)
 						.allowsHitTesting(false)
 					}
 				}
-				Button("새로고침", systemImage: tab?.isLoading == true ? "xmark" : "arrow.clockwise") {
-					guard let tab else { return }
-					if tab.isLoading { tab.webView.stopLoading() } else { tab.webView.reload() }
-				}
-				.disabled(tab == nil)
-				.help(tab?.isLoading == true ? "멈추기" : "새로고침 (⌘R)")
 			}
 			ToolbarSpacer(.flexible)
 			// 새 탭은 제목줄 오른쪽 끝 + 하나 (사용자 2026-11-23, 탭 줄의 + 는 뺐다)
