@@ -31,6 +31,8 @@ final class AppModel {
 
 	init() {
 		Keychain.probe()
+		MCPServer.shared.model = self
+		MCPServer.shared.startIfEnabled()
 		NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
 			MainActor.assumeIsolated { self?.flush() }
 		}

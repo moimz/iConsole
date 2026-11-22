@@ -62,6 +62,9 @@ final class WebTab: Identifiable {
 		webView.load(URLRequest(url: u))
 	}
 
+	/// MCP 에 보이는 짧은 탭 id
+	var shortID: String { String(id.uuidString.prefix(8)).lowercased() }
+
 	/// 탭 이름: 제목 → 주소의 호스트 → "새 탭"
 	var displayTitle: String {
 		if !title.isEmpty { return title }

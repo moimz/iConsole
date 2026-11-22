@@ -117,7 +117,7 @@ struct SettingsView: View {
 				GeneralSettingsPage().frame(width: Self.width, height: 400)
 			}
 			Tab("MCP", systemImage: "point.3.connected.trianglepath.dotted", value: "mcp") {
-				MCPSettingsPage().frame(width: Self.width, height: 320)
+				MCPSettingsPage().frame(width: Self.width, height: 680)
 			}
 		}
 		.background(SettingsWindowStyler())
@@ -157,18 +157,93 @@ private struct GeneralSettingsPage: View {
 	}
 }
 
-/// 설정 > MCP (AI 도구가 앱을 쓰게 하는 로컬 서버). 서버는 아직 만들기 전 — Ai.md 11번 모양으로 채운다
+/// 설정 > MCP (AI 도구가 앱을 쓰게 하는 로컬 서버). 첫 칸은 Ai.md 11번 모양 (iVNC MCPSettingsPage 기준)
 private struct MCPSettingsPage: View {
+	@Environment(AppModel.self) private var model
+	@Bindable private var mcp = MCPServer.shared
+	@State private var portText = ""
+
 	var body: some View {
 		Form {
 			Section {
-				LabeledContent("MCP 서버") { Text("준비 중").foregroundStyle(.secondary) }
+				Toggle("MCP 서버 켜기", isOn: $mcp.enabled)
+				LabeledContent("포트") {
+					TextField("포트", text: $portText)
+						.labelsHidden().frame(width: 80).multilineTextAlignment(.trailing)
+						.onSubmit { if let p = Int(portText), (1024...65535).contains(p) { mcp.port = p } else { portText = String(mcp.port) } }
+				}
+				LabeledContent("상태") {
+					switch mcp.status {
+					case .stopped: Text("꺼짐").foregroundStyle(.secondary)
+					case .running(let p): Label("듣는 중 (127.0.0.1:\(String(p)))", systemImage: "circle.fill").foregroundStyle(.green)
+					case .failed(let e): Text(e).foregroundStyle(.red)
+					}
+				}
+				LabeledContent("주소") {
+					// 오른쪽 끝을 아래 "연결 명령 복사" 버튼과 맞춘다
+					HStack(spacing: 8) {
+						Text(mcp.endpoint).textSelection(.enabled).foregroundStyle(.secondary).lineLimit(1).fixedSize()
+						Button("복사") { copyToPasteboard(mcp.endpoint) }
+					}
+					.frame(maxWidth: .infinity, alignment: .trailing)
+				}
+				LabeledContent("Claude Code") {
+					Button("연결 명령 복사") { copyToPasteboard("claude mcp add --transport http iconsole \(mcp.endpoint)") }
+				}
 			} footer: {
-				Text("Claude Code 같은 AI 도구가 계정의 탭을 열고, 페이지를 읽고, 설정을 바꾸게 하는 기능입니다. 이 맥 안(127.0.0.1)에서만 받고, 암호·OTP 는 MCP 로 넘기지 않습니다.")
-					.foregroundStyle(.tertiary)
+				Text("이 맥 안(127.0.0.1)에서만 받습니다. 암호 · OTP 는 MCP 로 넘기지 않고, 로그인 페이지는 읽거나 다룰 수 없습니다.")
+			}
+			Section("접근 범위") {
+				Picker("접근 범위", selection: $mcp.scope) {
+					ForEach(MCPScope.allCases) { Text($0.label).tag($0) }
+				}
+				.pickerStyle(.radioGroup)
+				.labelsHidden()
+				if mcp.scope == .selected {
+					ForEach(model.store.grouped, id: \.group) { g in
+						ForEach(g.accounts) { a in
+							Toggle(isOn: Binding(get: { mcp.allowed.contains(a.id) },
+							                     set: { if $0 { mcp.allowed.insert(a.id) } else { mcp.allowed.remove(a.id) } })) {
+								HStack(spacing: 8) {
+									ServiceIcon(kind: a.kind, size: 18)
+									Text(a.name)
+									if !g.group.isEmpty { Text(g.group).foregroundStyle(.secondary) }
+								}
+							}
+							.toggleStyle(.checkbox)
+						}
+					}
+				}
+			}
+			Section("권한") {
+				Picker("권한", selection: $mcp.permission) {
+					ForEach(MCPPermission.allCases) { p in
+						VStack(alignment: .leading, spacing: 2) {
+							Text(p.label)
+							Text(p.detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+						}
+						.tag(p)
+					}
+				}
+				.pickerStyle(.radioGroup)
+				.labelsHidden()
+			}
+			Section("최근 요청") {
+				if mcp.log.isEmpty {
+					Text("아직 없습니다").foregroundStyle(.secondary)
+				} else {
+					ForEach(mcp.log.prefix(8)) { e in
+						HStack(alignment: .firstTextBaseline) {
+							Text(e.time.formatted(date: .omitted, time: .standard)).foregroundStyle(.secondary).monospacedDigit()
+							Text(e.text).foregroundStyle(e.ok ? Color.primary : Color.red).lineLimit(2)
+						}
+						.font(.caption)
+					}
+				}
 			}
 		}
 		.formStyle(.grouped)
+		.onAppear { portText = String(mcp.port) }
 	}
 }
 
