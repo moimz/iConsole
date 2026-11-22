@@ -6,6 +6,11 @@ import SwiftUI
 struct iConsoleApp: App {
 	@State private var model = AppModel()
 
+	init() {
+		// 자동 업데이트는 앱이 뜰 때 한 번 만들어 둔다 (하루 한 번 확인)
+		_ = Updater.shared
+	}
+
 	var body: some Scene {
 		// 계정마다 탭 묶음이 하나라 창도 하나
 		Window("iConsole", id: "main") {
@@ -37,6 +42,7 @@ struct AppCommands: Commands {
 	private var mainKey: Bool { NSApp.keyWindow?.identifier?.rawValue.hasPrefix("main") ?? false }
 
 	var body: some Commands {
+		CommandGroup(after: .appInfo) { UpdateMenuButton() }
 		CommandGroup(replacing: .newItem) {
 			Button("새 탭") { session?.newTab() }
 				.keyboardShortcut("t")
@@ -117,7 +123,7 @@ struct SettingsView: View {
 	var body: some View {
 		TabView(selection: $tab) {
 			Tab("일반", systemImage: "gearshape", value: "general") {
-				GeneralSettingsPage().frame(width: Self.width, height: 580)
+				GeneralSettingsPage().frame(width: Self.width, height: 640)
 			}
 			Tab("MCP", systemImage: "point.3.connected.trianglepath.dotted", value: "mcp") {
 				MCPSettingsPage().frame(width: Self.width, height: 680)
@@ -170,9 +176,7 @@ private struct GeneralSettingsPage: View {
 			} footer: {
 				Text("사이트가 앱 안 웹뷰를 막을 때 켭니다.").foregroundStyle(.tertiary)
 			}
-			Section {
-				LabeledContent("버전") { Text(version).foregroundStyle(.secondary).monospacedDigit() }
-			}
+			UpdateSection(version: version)
 		}
 		.formStyle(.grouped)
 	}
@@ -284,4 +288,35 @@ struct SettingsWindowStyler: NSViewRepresentable {
 	}
 	func makeNSView(context: Context) -> Probe { Probe() }
 	func updateNSView(_ v: Probe, context: Context) {}
+}
+
+/// 메뉴 iConsole > 업데이트 확인…
+private struct UpdateMenuButton: View {
+	private var updater = Updater.shared
+	var body: some View {
+		Button("업데이트 확인…") { updater.checkForUpdates() }
+			.disabled(!updater.canCheck)
+	}
+}
+
+/// 설정 > 일반 > 업데이트: 지금 버전, 지금 확인, 자동 확인 켜기/끄기 (iSQL UpdateSection)
+private struct UpdateSection: View {
+	let version: String
+	@Bindable private var updater = Updater.shared
+
+	var body: some View {
+		Section {
+			LabeledContent("버전") {
+				HStack(spacing: 8) {
+					Text(version).foregroundStyle(.secondary).monospacedDigit()
+					Button("업데이트 확인…") { updater.checkForUpdates() }.disabled(!updater.canCheck)
+				}
+			}
+			Toggle("자동으로 업데이트 확인", isOn: $updater.automaticallyChecks)
+		} header: {
+			Text("업데이트")
+		} footer: {
+			Text("하루에 한 번 새 버전이 있는지 확인하고, 있으면 설치할지 묻습니다.").foregroundStyle(.tertiary)
+		}
+	}
 }
