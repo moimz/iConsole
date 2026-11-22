@@ -50,7 +50,7 @@ final class AppModel {
 		for (id, s) in sessions where store.account(id) == nil {
 			s.tearDown()
 			sessions[id] = nil
-			StorageLocation.remove(StorageLocation.shared.tabs.appendingPathComponent(id.uuidString + ".json"))
+			UserDefaults.standard.removeObject(forKey: "tabs.\(id.uuidString)")
 			Task { try? await WKWebsiteDataStore.remove(forIdentifier: id) }
 		}
 		if let id = currentID, store.account(id) == nil { select(nil) }
@@ -92,7 +92,7 @@ final class AppModel {
 		if let s = sessions.removeValue(forKey: a.id) { s.tearDown() }
 		if currentID == a.id { select(nil) }
 		store.delete(a)
-		StorageLocation.remove(StorageLocation.shared.tabs.appendingPathComponent(a.id.uuidString + ".json"))
+		UserDefaults.standard.removeObject(forKey: "tabs.\(a.id.uuidString)")
 		Task {
 			try? await Task.sleep(for: .milliseconds(500))
 			try? await WKWebsiteDataStore.remove(forIdentifier: a.id)

@@ -38,9 +38,10 @@ final class WebTab: Identifiable {
 
 	private func update(_ w: WKWebView) {
 		guard pending == nil else { return }
+		// 탭 이름은 늘 사이트가 주는 제목 (사용자 2026-11-23). 새 페이지라 아직 제목이 없으면 비워 두고 주소 호스트를 보인다
 		let t = w.title ?? ""
-		let changed = (!t.isEmpty && t != title) || (w.url != nil && w.url != url)
-		if !t.isEmpty { title = t }
+		let changed = t != title || (w.url != nil && w.url != url)
+		title = t
 		if let u = w.url { url = u }
 		isLoading = w.isLoading
 		if changed { onChange?() }

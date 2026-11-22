@@ -130,7 +130,7 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		config.userContentController.removeAllScriptMessageHandlers()
 	}
 
-	// MARK: 탭 기억 (계정마다 열려 있던 탭. iCloud 로 맥끼리 같이 쓰고, 그 계정을 처음 열 때 되살린다)
+	// MARK: 탭 기억 (계정마다 열려 있던 탭을 다시 켤 때 되살린다. 맥마다 따로, 동기화하지 않는다 — 사용자 2026-11-23)
 
 	private struct Memory: Codable {
 		struct Tab: Codable { var url: String; var title: String }
@@ -138,10 +138,9 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		var active: Int
 	}
 
-	/// iCloud Drive Tabs/<계정 UUID>.json (예전에는 UserDefaults "tabs.<id>" 에 맥마다 따로)
-	private var memoryFile: URL { StorageLocation.shared.tabs.appendingPathComponent(accountID.uuidString + ".json") }
-	private var legacyKey: String { "tabs.\(accountID.uuidString)" }
-	/// 마지막으로 쓴 내용 (같은 내용을 iCloud 에 거듭 쓰지 않게)
+	/// 이 맥 UserDefaults "tabs.<계정 UUID>"
+	private var memoryKey: String { "tabs.\(accountID.uuidString)" }
+	/// 마지막으로 쓴 내용 (같은 내용을 거듭 쓰지 않게)
 	@ObservationIgnored private var lastSaved: Data?
 	@ObservationIgnored private var saveWork: DispatchWorkItem?
 
@@ -158,7 +157,7 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		let m = Memory(tabs: list, active: tabs.firstIndex { $0.id == activeID } ?? 0)
 		guard let d = try? JSONEncoder().encode(m), d != lastSaved else { return }
 		lastSaved = d
-		StorageLocation.write(d, to: memoryFile)
+		UserDefaults.standard.set(d, forKey: memoryKey)
 	}
 
 	/// 앱을 끝낼 때 (모아 둔 것을 바로 쓴다)
@@ -168,9 +167,7 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 	}
 
 	private func restore(home: URL) {
-		let d = StorageLocation.read(memoryFile) ?? UserDefaults.standard.data(forKey: legacyKey)
-		UserDefaults.standard.removeObject(forKey: legacyKey)
-		guard let d, let m = try? JSONDecoder().decode(Memory.self, from: d), !m.tabs.isEmpty else {
+		guard let d = UserDefaults.standard.data(forKey: memoryKey), let m = try? JSONDecoder().decode(Memory.self, from: d), !m.tabs.isEmpty else {
 			newTab(home)
 			return
 		}
