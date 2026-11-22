@@ -55,9 +55,9 @@ struct BrowserPane: View {
 			ToolbarSpacer(.flexible)
 			ToolbarItemGroup(placement: .primaryAction) {
 				let fav = model.favorite(for: tab?.url, in: session.accountID) != nil
-				Button(fav ? "즐겨찾기에서 빼기" : "즐겨찾기에 추가", systemImage: fav ? "star.fill" : "star") { model.toggleFavorite() }
+				Button(fav ? "즐겨찾기 편집" : "즐겨찾기에 추가", systemImage: fav ? "star.fill" : "star") { model.editFavorite() }
 					.disabled(tab?.url == nil)
-					.help(fav ? "즐겨찾기에서 빼기 (⌘D)" : "즐겨찾기에 추가 (⌘D)")
+					.help(fav ? "즐겨찾기 편집 (⌘D)" : "즐겨찾기에 추가 (⌘D)")
 				AddressField(url: tab?.url, controller: model.address) { text in
 					guard let u = Self.url(from: text) else { return }
 					if let tab { tab.load(u) } else { session.newTab(u) }
@@ -97,7 +97,7 @@ struct TabBar: View {
 					           close: { session.close(t.id) })
 						.contextMenu {
 							let fav = model.favorite(for: t.url, in: session.accountID) != nil
-							Button(fav ? "즐겨찾기에서 빼기" : "즐겨찾기에 추가") { model.toggleFavorite(t) }.disabled(t.url == nil)
+							Button(fav ? "즐겨찾기 편집…" : "즐겨찾기에 추가…") { model.editFavorite(t) }.disabled(t.url == nil)
 							Button("주소 복사") {
 								NSPasteboard.general.clearContents()
 								NSPasteboard.general.setString(t.url?.absoluteString ?? "", forType: .string)
@@ -144,7 +144,7 @@ struct WebTabItem: View {
 				if tab.isLoading {
 					ProgressView().controlSize(.mini)
 				} else {
-					FaviconView(url: tab.url, size: 14)
+					FaviconView(url: tab.url, icon: tab.icon, size: 14)
 				}
 			}
 			.frame(width: 14, height: 14)

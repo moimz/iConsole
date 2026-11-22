@@ -67,7 +67,7 @@ struct AppCommands: Commands {
 			Button("다음 탭 ") { session?.cycle(1) }.keyboardShortcut("]", modifiers: [.command, .shift])
 			Button("이전 탭 ") { session?.cycle(-1) }.keyboardShortcut("[", modifiers: [.command, .shift])
 			Divider()
-			Button(model.favorite(for: tab?.url, in: model.currentID) != nil ? "즐겨찾기에서 빼기" : "즐겨찾기에 추가") { model.toggleFavorite() }
+			Button(model.favorite(for: tab?.url, in: model.currentID) != nil ? "즐겨찾기 편집…" : "즐겨찾기에 추가…") { model.editFavorite() }
 				.keyboardShortcut("d")
 				.disabled(tab?.url == nil)
 			Divider()

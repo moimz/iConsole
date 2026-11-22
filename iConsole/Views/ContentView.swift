@@ -41,6 +41,9 @@ struct ContentView: View {
 				model.store.addGroup(groupName)
 			}
 		}
+		.sheet(item: Binding(get: { model.favoriteDraft }, set: { model.favoriteDraft = $0 })) { d in
+			FavoriteSheet(draft: d)
+		}
 		.onReceive(NotificationCenter.default.publisher(for: .addAccount)) { _ in adding = true }
 	}
 }

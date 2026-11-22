@@ -6,8 +6,6 @@ struct FavoritesBar: View {
 	@Environment(AppModel.self) private var model
 	let session: AccountSession
 	@State private var reorder = TabReorder<Favorite.ID>()
-	@State private var renaming: Favorite?
-	@State private var newName = ""
 
 	private var favorites: [Favorite] { model.store.account(session.accountID)?.favorites ?? [] }
 
@@ -26,7 +24,7 @@ struct FavoritesBar: View {
 								Button("열기") { open(f, newTab: false) }
 								Button("새 탭에서 열기") { open(f, newTab: true) }
 								Divider()
-								Button("이름 바꾸기…") { newName = f.title; renaming = f }
+								Button("편집…") { model.favoriteDraft = FavoriteDraft(accountID: session.accountID, favorite: f, isNew: false) }
 								Button("주소 복사") {
 									NSPasteboard.general.clearContents()
 									NSPasteboard.general.setString(f.url, forType: .string)
@@ -45,11 +43,6 @@ struct FavoritesBar: View {
 		}
 		.frame(height: 30)
 		.background(Color(nsColor: .underPageBackgroundColor).opacity(0.3), ignoresSafeAreaEdges: [])
-		.sheet(item: $renaming) { f in
-			NameSheet(title: "즐겨찾기 이름 바꾸기", name: $newName, taken: { _ in false }) {
-				model.store.renameFavorite(f.id, in: session.accountID, to: newName)
-			}
-		}
 	}
 
 	private func open(_ f: Favorite, newTab: Bool) {
@@ -73,7 +66,8 @@ struct FavoriteItem: View {
 		.frame(height: 22)
 		.frame(maxWidth: 200)
 		.background(RoundedRectangle(cornerRadius: 5).fill(hover ? Color.primary.opacity(0.08) : .clear))
-		.padding(.horizontal, 2)
+		// 바깥 4 + 안 8 = 12: 첫 즐겨찾기 아이콘이 아래 탭 아이콘(왼쪽 12)과 같은 줄에 선다
+		.padding(.horizontal, 4)
 		.frame(height: 30)
 		.contentShape(Rectangle())
 		.onHover { hover = $0 }
@@ -81,5 +75,67 @@ struct FavoriteItem: View {
 		.onTapGesture { open(NSEvent.modifierFlags.contains(.command)) }
 		.background(MiddleClickCatcher { open(true) })
 		.help(favorite.url)
+	}
+}
+
+/// 즐겨찾기 추가·편집 시트 (제목바 아래로 붙는다). 추가할 때는 사이트 제목·지금 주소를 채워 두고, 고친 뒤 추가
+struct FavoriteSheet: View {
+	@Environment(AppModel.self) private var model
+	@Environment(\.dismiss) private var dismiss
+	let draft: FavoriteDraft
+	@State private var title = ""
+	@State private var url = ""
+	@FocusState private var focused: Bool
+
+	private var trimmedURL: String { url.trimmingCharacters(in: .whitespaces) }
+	private var valid: Bool {
+		!title.trimmingCharacters(in: .whitespaces).isEmpty && URL(string: trimmedURL)?.scheme != nil
+	}
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 14) {
+			Text(draft.isNew ? "즐겨찾기에 추가" : "즐겨찾기 편집").font(.headline)
+			Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 10) {
+				GridRow {
+					Text("이름:").gridColumnAlignment(.trailing)
+					TextField("", text: $title).textFieldStyle(.roundedBorder).focused($focused).onSubmit(save)
+				}
+				GridRow {
+					Text("주소:")
+					TextField("", text: $url).textFieldStyle(.roundedBorder).onSubmit(save)
+				}
+			}
+			HStack {
+				if !draft.isNew {
+					Button("즐겨찾기에서 빼기", role: .destructive) {
+						model.store.removeFavorite(draft.favorite.id, from: draft.accountID)
+						dismiss()
+					}
+				}
+				Spacer()
+				Button("취소", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+				Button(draft.isNew ? "추가" : "저장", action: save)
+					.keyboardShortcut(.defaultAction)
+					.buttonStyle(.borderedProminent)
+					.disabled(!valid)
+			}
+			.controlSize(.large)
+		}
+		.padding(20)
+		.frame(width: 520)
+		.onAppear {
+			title = draft.favorite.title
+			url = draft.favorite.url
+			focused = true
+		}
+	}
+
+	private func save() {
+		guard valid else { return }
+		var f = draft.favorite
+		f.title = title.trimmingCharacters(in: .whitespaces)
+		f.url = trimmedURL
+		if draft.isNew { model.store.addFavorite(f, to: draft.accountID) } else { model.store.updateFavorite(f, in: draft.accountID) }
+		dismiss()
 	}
 }

@@ -164,6 +164,11 @@ final class AccountStore {
 		}
 	}
 
+	/// 이름·주소 고치기
+	func updateFavorite(_ f: Favorite, in id: UUID) {
+		update(id) { a in if let i = a.favorites.firstIndex(where: { $0.id == f.id }) { a.favorites[i] = f } }
+	}
+
 	func renameFavorite(_ fid: UUID, in id: UUID, to title: String) {
 		update(id) { a in if let i = a.favorites.firstIndex(where: { $0.id == fid }) { a.favorites[i].title = title } }
 	}

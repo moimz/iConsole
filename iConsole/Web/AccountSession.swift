@@ -51,7 +51,7 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 
 	@discardableResult
 	private func add(_ tab: WebTab, after: WebTab.ID? = nil, activate: Bool) -> WebTab {
-		tab.onChange = { [weak self] in self?.saveTabs() }
+		tab.onChange = { [weak self, weak tab] in self?.saveTabs(); if let tab { self?.scheduleIcon(tab) } }
 		if let after, let i = tabs.firstIndex(where: { $0.id == after }) { tabs.insert(tab, at: i + 1) } else { tabs.append(tab) }
 		if activate || activeID == nil { select(tab.id) }
 		saveTabs()
@@ -93,7 +93,7 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 	func reopenClosed() {
 		guard let last = closed.popLast() else { NSSound.beep(); return }
 		let t = WebTab(webView: makeWebView(config))
-		t.onChange = { [weak self] in self?.saveTabs() }
+		t.onChange = { [weak self, weak t] in self?.saveTabs(); if let t { self?.scheduleIcon(t) } }
 		tabs.insert(t, at: min(last.index, tabs.count))
 		select(t.id)
 		t.load(last.url)
@@ -174,7 +174,7 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		for s in m.tabs {
 			guard let u = URL(string: s.url) else { continue }
 			let t = WebTab(webView: makeWebView(config), pending: u, title: s.title)
-			t.onChange = { [weak self] in self?.saveTabs() }
+			t.onChange = { [weak self, weak t] in self?.saveTabs(); if let t { self?.scheduleIcon(t) } }
 			tabs.append(t)
 		}
 		if tabs.isEmpty { newTab(home) } else { select(tabs[min(max(0, m.active), tabs.count - 1)].id) }
@@ -198,12 +198,31 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 
 	/// 다 읽으면 사이트 아이콘 주소를 찾아 받는다
 	func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {
-		guard let host = w.url?.host() else { return }
-		w.evaluateJavaScript(Favicons.finder) { result, _ in
+		if let t = tab(of: w) { refreshIcon(t) }
+	}
+
+	/// 그 탭 페이지의 아이콘 주소를 읽어 탭에 두고, 페이지 → 아이콘 짝을 기억한다.
+	/// AWS 콘솔처럼 페이지를 다시 읽지 않고 바꾸는 곳(SPA)은 주소·제목이 바뀔 때도 (잠깐 뒤에) 다시 읽는다
+	private func refreshIcon(_ t: WebTab) {
+		guard let page = t.webView.url, page.scheme?.hasPrefix("http") == true else { return }
+		t.webView.evaluateJavaScript(Favicons.finder) { result, _ in
 			MainActor.assumeIsolated {
-				if let s = result as? String, let u = URL(string: s) { Favicons.shared.fetch(u, host: host) }
+				guard let s = result as? String, let u = URL(string: s) else { return }
+				t.icon = s
+				Favicons.shared.record(page: page, icon: u)
 			}
 		}
+	}
+
+	@ObservationIgnored private var iconWork: [WebTab.ID: DispatchWorkItem] = [:]
+
+	private func scheduleIcon(_ t: WebTab) {
+		iconWork[t.id]?.cancel()
+		let work = DispatchWorkItem { [weak self, weak t] in
+			MainActor.assumeIsolated { if let self, let t { self.refreshIcon(t) } }
+		}
+		iconWork[t.id] = work
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
 	}
 
 	func webView(_ w: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError e: Error) {

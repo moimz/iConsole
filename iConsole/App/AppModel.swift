@@ -72,13 +72,16 @@ final class AppModel {
 		UserDefaults.standard.set(id?.uuidString, forKey: "current")
 	}
 
-	/// 지금 탭을 즐겨찾기에 (이미 있으면 뺀다)
-	func toggleFavorite(_ tab: WebTab? = nil) {
+	/// 즐겨찾기 시트 (제목바 아래로 붙는다): 추가할 때는 이름·주소를 채워서, 이미 있으면 편집
+	var favoriteDraft: FavoriteDraft?
+
+	/// ☆ · ⌘D · 탭 오른쪽 클릭: 없으면 추가 시트, 있으면 편집 시트
+	func editFavorite(_ tab: WebTab? = nil) {
 		guard let id = currentID, let t = tab ?? current?.active, let u = t.url else { return }
 		if let f = favorite(for: u, in: id) {
-			store.removeFavorite(f.id, from: id)
+			favoriteDraft = FavoriteDraft(accountID: id, favorite: f, isNew: false)
 		} else {
-			store.addFavorite(Favorite(title: t.displayTitle, url: u.absoluteString), to: id)
+			favoriteDraft = FavoriteDraft(accountID: id, favorite: Favorite(title: t.displayTitle, url: u.absoluteString), isNew: true)
 		}
 	}
 
@@ -116,4 +119,12 @@ final class AppModel {
 	}
 
 	func clearLogs() { logs.removeAll() }
+}
+
+/// 즐겨찾기 시트에 넘기는 것
+struct FavoriteDraft: Identifiable {
+	var id: UUID { favorite.id }
+	let accountID: UUID
+	var favorite: Favorite
+	let isNew: Bool
 }
