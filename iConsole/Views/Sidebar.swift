@@ -58,7 +58,7 @@ struct Sidebar: View {
 							}
 					}
 				} header: {
-					GroupHeader(name: g.group, count: g.accounts.count)
+					GroupHeader(name: g.group)
 						.draggable(DragItem.group(g.group)) {
 							DragGhost { Label(g.group.isEmpty ? "그룹 없음" : g.group, systemImage: "folder").fontWeight(.semibold) }
 						}
@@ -215,22 +215,13 @@ struct DragGhost<Content: View>: View {
 	}
 }
 
+/// 그룹 머리: 이름만 (개수 알약은 뺐다, 사용자 2026-11-23)
 struct GroupHeader: View {
 	let name: String
-	let count: Int
 	var body: some View {
-		HStack {
-			Text(name.isEmpty ? "그룹 없음" : name)
-			Spacer()
-			Text("\(count)")
-				.font(.system(size: 11, weight: .medium))
-				.monospacedDigit()
-				.foregroundStyle(.secondary)
-				.padding(.horizontal, 6).padding(.vertical, 1)
-				.background(Capsule().fill(Color.secondary.opacity(0.15)))
-				.padding(.trailing, 8)
-		}
-		.contentShape(Rectangle())
+		Text(name.isEmpty ? "그룹 없음" : name)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.contentShape(Rectangle())
 	}
 }
 

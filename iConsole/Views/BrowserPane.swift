@@ -62,7 +62,8 @@ struct BrowserPane: View {
 						if let tab { tab.load(u) } else { session.newTab(u) }
 					}
 					.padding(.horizontal, 6)
-					.frame(minWidth: 200, idealWidth: 900, maxWidth: 1200, minHeight: 28, maxHeight: 28)
+					// 알약 전체(☆ · 번역 · ↻ 포함)가 최대 800 쯤 되게 (사용자 2026-11-23: 1200 은 너무 넓다)
+					.frame(minWidth: 200, idealWidth: 680, maxWidth: 680, minHeight: 28, maxHeight: 28)
 					// 번역 (애플 Translation, 맥 안에서): 번역 중이면 강조색, 다시 누르면 원문
 					Button { if let tab { PageTranslator.shared.toggle(tab) } } label: {
 						Image(systemName: "translate").frame(width: 28, height: 28).contentShape(Rectangle())
