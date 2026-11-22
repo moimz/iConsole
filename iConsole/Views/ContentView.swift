@@ -83,19 +83,17 @@ struct AccountForm: View {
 					SecureField("암호", text: $password)
 					SecureField("OTP", text: $otp, prompt: Text("otpauth://totp?secret=… 또는 비밀 값"))
 					LabeledContent("지금 코드") {
-						TimelineView(.periodic(from: .now, by: 1)) { ctx in
-							if otp.isEmpty {
-								Text("없음").foregroundStyle(.secondary)
-							} else if let t = TOTP(otp) {
-								Text("\(t.code(at: ctx.date))  (\(t.remaining(at: ctx.date))초)").monospacedDigit()
-							} else {
-								Text("형식 오류").foregroundStyle(.red)
-							}
+						if otp.isEmpty {
+							Text("없음").foregroundStyle(.secondary)
+						} else if let t = TOTP(otp) {
+							OTPCodeView(totp: t)
+						} else {
+							Text("형식 오류").foregroundStyle(.red)
 						}
 					}
 				} footer: {
 					Text(kind == .apple ? "애플 계정 2단계 코드는 TOTP 가 아니라 채우지 않습니다 (문자로 받으면 macOS 가 채워 줍니다)."
-					     : "암호와 OTP 는 이 맥 키체인에만 저장합니다.")
+					     : "암호와 OTP 는 iCloud 키체인에 저장합니다 (계정 파일에는 넣지 않습니다).")
 						.font(.caption).foregroundStyle(.secondary)
 				}
 				TextField("시작 주소", text: $start, prompt: Text(kind.home.absoluteString))

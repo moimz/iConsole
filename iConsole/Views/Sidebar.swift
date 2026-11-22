@@ -18,12 +18,29 @@ struct Sidebar: View {
 	@State private var deletingGroup: String?
 	@State private var renamingGroup: String?
 	@State private var newName = ""
+	@State private var searchText = ""
+	@FocusState private var searchFocused: Bool
 
 	private var store: AccountStore { model.store }
 
+	/// 검색어(띄어 쓴 낱말 모두)가 이름·아이디·그룹·서비스·시작 주소에 들어 있는 계정만. 찾는 동안 빈 그룹은 숨긴다 (iSQL)
+	private var shown: [(group: String, accounts: [Account])] {
+		let words = searchText.lowercased().split(separator: " ").map(String.init)
+		guard !words.isEmpty else { return store.grouped }
+		return store.grouped.compactMap { g in
+			let list = g.accounts.filter { a in
+				let hay = [a.name, a.username, a.group, a.kind.title, a.kind.rawValue, a.start ?? ""].joined(separator: " ").lowercased()
+				return words.allSatisfy { hay.contains($0) }
+			}
+			return list.isEmpty ? nil : (g.group, list)
+		}
+	}
+
 	var body: some View {
+		VStack(spacing: 0) {
+		SidebarSearchField(text: $searchText, prompt: "이름, 아이디, 그룹 검색", focused: $searchFocused)
 		List(selection: $selection) {
-			ForEach(store.grouped, id: \.group) { g in
+			ForEach(shown, id: \.group) { g in
 				Section {
 					ForEach(g.accounts) { a in
 						accountRow(a)
@@ -31,7 +48,7 @@ struct Sidebar: View {
 					.onInsert(of: [.utf8PlainText, .plainText]) { index, providers in
 						insert(providers, group: g.group, accounts: g.accounts, at: index)
 					}
-					if g.accounts.isEmpty {
+					if g.accounts.isEmpty && searchText.isEmpty {
 						Text("계정을 여기로 끌어 놓으세요").font(.caption).foregroundStyle(.tertiary)
 							.frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
 							.dropDestination(for: String.self) { items, _ in
@@ -55,7 +72,9 @@ struct Sidebar: View {
 			}
 		}
 		.overlay {
-			if store.accounts.isEmpty {
+			if !searchText.isEmpty && shown.isEmpty {
+				ContentUnavailableView.search(text: searchText)
+			} else if store.accounts.isEmpty {
 				ContentUnavailableView {
 					Label("계정 없음", systemImage: "person.crop.circle.badge.plus")
 				} description: {
@@ -63,6 +82,9 @@ struct Sidebar: View {
 				}
 			}
 		}
+		}
+		// ⌥⌘F 로 검색칸 (⌘F 는 나중에 페이지 찾기에 남겨 둔다)
+		.background { Button("") { searchFocused = true }.keyboardShortcut("f", modifiers: [.command, .option]).hidden() }
 		// 목록 끝을 흐리게 가리는 막대 + 유리 알약 (iSQL)
 		.safeAreaBar(edge: .bottom) {
 			HStack {
@@ -131,6 +153,9 @@ struct Sidebar: View {
 					ForEach(store.grouped.map(\.group).filter { !$0.isEmpty }, id: \.self) { g in
 						Button(g) { store.moveAccount(a.id, toGroup: g, before: nil) }.disabled(a.group == g)
 					}
+				}
+				if let t = Keychain.get(a.otpKey).flatMap(TOTP.init) {
+					Button("OTP 코드 복사") { copyToPasteboard(t.code()) }
 				}
 				Button("로그인 지우기 (웹 데이터)") { Task { await model.clearWebData(a) } }
 				Divider()
@@ -314,5 +339,77 @@ struct NameSheet: View {
 		name = trimmed
 		done()
 		dismiss()
+	}
+}
+
+/// 사이드바 위 검색칸 (iSQL Views/TableViews.swift 의 SidebarSearchField 그대로)
+struct SidebarSearchField: View {
+	@Binding var text: String
+	let prompt: String
+	var focused: FocusState<Bool>.Binding
+
+	var body: some View {
+		HStack(spacing: 6) {
+			Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+			TextField(prompt, text: $text)
+				.textFieldStyle(.plain)
+				.focused(focused)
+			if !text.isEmpty {
+				Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+					.buttonStyle(.plain)
+			}
+		}
+		.padding(.horizontal, 10)
+		.frame(height: 32)
+		.background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+		.overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.2)))
+		.padding(.horizontal, 10)
+		.padding(.vertical, 8)
+	}
+}
+
+func copyToPasteboard(_ s: String) {
+	NSPasteboard.general.clearContents()
+	NSPasteboard.general.setString(s, forType: .string)
+}
+
+/// OTP 코드: 애플 암호처럼 남은 시간 동그라미 + "137 530". 누르면 클립보드로 (잠깐 "복사됨")
+struct OTPCodeView: View {
+	let totp: TOTP
+	@State private var copiedAt: Date?
+
+	var body: some View {
+		TimelineView(.periodic(from: .now, by: 1)) { ctx in
+			let code = totp.code(at: ctx.date)
+			let left = Double(totp.remaining(at: ctx.date))
+			HStack(spacing: 8) {
+				ZStack {
+					Circle().stroke(Color.secondary.opacity(0.25), lineWidth: 2.5)
+					Circle().trim(from: 0, to: left / Double(totp.period))
+						.stroke(left <= 5 ? Color.orange : Color.green, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+						.rotationEffect(.degrees(-90))
+						.animation(.linear(duration: 1), value: left)
+				}
+				.frame(width: 16, height: 16)
+				if let c = copiedAt, ctx.date.timeIntervalSince(c) < 1.5 {
+					Text("복사됨").foregroundStyle(.secondary)
+				} else {
+					Text(Self.spaced(code)).font(.system(.body, design: .monospaced).weight(.semibold))
+				}
+			}
+			.contentShape(Rectangle())
+			.onTapGesture {
+				copyToPasteboard(totp.code())
+				copiedAt = Date()
+			}
+			.help("눌러서 복사")
+		}
+	}
+
+	/// 가운데를 띄운다 (6자리 → 3 3)
+	static func spaced(_ code: String) -> String {
+		guard code.count >= 6 else { return code }
+		let mid = code.index(code.startIndex, offsetBy: code.count / 2)
+		return code[..<mid] + " " + code[mid...]
 	}
 }
