@@ -59,6 +59,9 @@ struct AppCommands: Commands {
 		CommandMenu("탐색") {
 			Button("주소칸") { model.address.focus() }.keyboardShortcut("l")
 			Button("새로고침") { tab?.webView.reload() }.keyboardShortcut("r").disabled(tab == nil)
+			Button(tab?.translated == true ? "원문 보기" : "이 페이지 번역") { if let tab { PageTranslator.shared.toggle(tab) } }
+				.keyboardShortcut("t", modifiers: [.command, .option])
+				.disabled(tab?.url == nil)
 			Button("뒤로") { tab?.webView.goBack() }.keyboardShortcut("[").disabled(tab?.canGoBack != true)
 			Button("앞으로") { tab?.webView.goForward() }.keyboardShortcut("]").disabled(tab?.canGoForward != true)
 			Divider()
@@ -114,7 +117,7 @@ struct SettingsView: View {
 	var body: some View {
 		TabView(selection: $tab) {
 			Tab("일반", systemImage: "gearshape", value: "general") {
-				GeneralSettingsPage().frame(width: Self.width, height: 480)
+				GeneralSettingsPage().frame(width: Self.width, height: 580)
 			}
 			Tab("MCP", systemImage: "point.3.connected.trianglepath.dotted", value: "mcp") {
 				MCPSettingsPage().frame(width: Self.width, height: 680)
@@ -150,6 +153,15 @@ private struct GeneralSettingsPage: View {
 				Text("로그인 채우기")
 			} footer: {
 				Text("끄면 칸만 채우고 엔터는 직접 누릅니다. CAPTCHA 가 보이면 켜 두어도 누르지 않습니다.").foregroundStyle(.tertiary)
+			}
+			Section {
+				Picker("번역할 언어", selection: Binding(get: { PageTranslator.shared.target }, set: { PageTranslator.shared.target = $0 })) {
+					ForEach(PageTranslator.targets, id: \.id) { Text($0.label).tag($0.id) }
+				}
+			} header: {
+				Text("번역")
+			} footer: {
+				Text("주소칸의 번역 버튼(⌥⌘T)은 애플 번역으로 이 맥 안에서 번역합니다. 처음 쓰는 언어는 언어 파일을 내려받을지 묻습니다.").foregroundStyle(.tertiary)
 			}
 			Section {
 				Toggle("Safari 로 보이기 (User-Agent)", isOn: $model.safariUA)

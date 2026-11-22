@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import Translation
 
 /// 계정 하나의 화면: 제목줄 [‹ ›] [↻] · 가운데 [☆ 주소칸], 그 아래 즐겨찾기 막대(Safari 처럼), 탭 줄, 지금 탭의 웹뷰.
 /// 제목줄 버튼은 이 본문 뷰의 .toolbar 에 붙인다 (창 전체 .toolbar 에 두면 사이드바 토글 밑에 깔렸다가 밀려 나온다, Ai.md 8·12번)
@@ -30,6 +31,10 @@ struct BrowserPane: View {
 				}
 			}
 		}
+		// 번역 세션은 이 수식어로만 받는다 (번역 버튼 → configuration 이 바뀌면 다시 돈다)
+		.translationTask(PageTranslator.shared.configuration) { session in
+			await PageTranslator.shared.run(session)
+		}
 		.toolbar {
 			ToolbarItemGroup(placement: .navigation) {
 				Button("뒤로", systemImage: "chevron.left") { tab?.webView.goBack() }
@@ -58,6 +63,14 @@ struct BrowserPane: View {
 					}
 					.padding(.horizontal, 6)
 					.frame(minWidth: 200, idealWidth: 900, maxWidth: 1200, minHeight: 28, maxHeight: 28)
+					// 번역 (애플 Translation, 맥 안에서): 번역 중이면 강조색, 다시 누르면 원문
+					Button { if let tab { PageTranslator.shared.toggle(tab) } } label: {
+						Image(systemName: "translate").frame(width: 28, height: 28).contentShape(Rectangle())
+							.foregroundStyle(tab?.translated == true ? Color.accentColor : .primary)
+					}
+					.buttonStyle(.plain)
+					.disabled(tab?.url == nil)
+					.help(tab?.translated == true ? "원문 보기 (⌥⌘T)" : "이 페이지 번역 (⌥⌘T)")
 					Button {
 						guard let tab else { return }
 						if tab.isLoading { tab.webView.stopLoading() } else { tab.webView.reload() }

@@ -16,6 +16,8 @@ final class WebTab: Identifiable {
 	private(set) var canGoForward = false
 	/// 아직 읽지 않은 주소 (되살린 탭)
 	private(set) var pending: URL?
+	/// 번역해서 보는 중 (PageTranslator). 다른 페이지로 가도 이어서 번역한다
+	var translated = false
 	/// 이 탭 페이지가 알려 준 아이콘 주소 (탭마다 따로, 다른 탭 아이콘에 덮이지 않게)
 	var icon: String?
 
