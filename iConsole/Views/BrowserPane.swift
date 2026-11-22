@@ -17,11 +17,6 @@ struct BrowserPane: View {
 			Divider()
 			ZStack(alignment: .top) {
 				WebArea(webView: tab?.webView)
-				if let tab, tab.isLoading {
-					ProgressView(value: tab.progress)
-						.progressViewStyle(.linear)
-						.frame(height: 2)
-				}
 				if session.tabs.isEmpty {
 					ContentUnavailableView {
 						Label("열린 탭 없음", systemImage: "rectangle.on.rectangle")
@@ -58,6 +53,19 @@ struct BrowserPane: View {
 				}
 				.padding(.horizontal, 6)
 				.frame(minWidth: 200, idealWidth: 900, maxWidth: 1200, minHeight: 28, maxHeight: 28)
+				// 읽는 중: Safari 처럼 주소칸 아래쪽에 얇은 진행 막대 (예전엔 웹 영역 맨 위에 그렸다, 사용자 2026-11-23)
+				.overlay(alignment: .bottomLeading) {
+					if let tab, tab.isLoading {
+						GeometryReader { g in
+							Capsule().fill(Color.accentColor)
+								.frame(width: max(8, g.size.width * tab.progress), height: 2)
+								.frame(maxHeight: .infinity, alignment: .bottom)
+								.animation(.easeOut(duration: 0.2), value: tab.progress)
+						}
+						.offset(y: 3)
+						.allowsHitTesting(false)
+					}
+				}
 				Button("새로고침", systemImage: tab?.isLoading == true ? "xmark" : "arrow.clockwise") {
 					guard let tab else { return }
 					if tab.isLoading { tab.webView.stopLoading() } else { tab.webView.reload() }
