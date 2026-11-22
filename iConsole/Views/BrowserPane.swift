@@ -1,7 +1,7 @@
 import SwiftUI
 import WebKit
 
-/// 계정 하나의 화면: 제목줄 [‹ ›] [↻] · 가운데 [☆ 주소칸] · [+ 새 탭], 그 아래 탭 줄, 그 아래 지금 탭의 웹뷰.
+/// 계정 하나의 화면: 제목줄 [‹ ›] [↻] · 가운데 [☆ 주소칸], 그 아래 즐겨찾기 막대(Safari 처럼), 탭 줄, 지금 탭의 웹뷰.
 /// 제목줄 버튼은 이 본문 뷰의 .toolbar 에 붙인다 (창 전체 .toolbar 에 두면 사이드바 토글 밑에 깔렸다가 밀려 나온다, Ai.md 8·12번)
 struct BrowserPane: View {
 	@Environment(AppModel.self) private var model
@@ -11,6 +11,8 @@ struct BrowserPane: View {
 
 	var body: some View {
 		VStack(spacing: 0) {
+			FavoritesBar(session: session)
+			Divider()
 			TabBar(session: session)
 			Divider()
 			ZStack(alignment: .top) {
@@ -142,9 +144,7 @@ struct WebTabItem: View {
 				if tab.isLoading {
 					ProgressView().controlSize(.mini)
 				} else {
-					Image(systemName: favorite ? "star.fill" : "globe")
-						.font(.system(size: 11))
-						.foregroundStyle(favorite ? Color.yellow : (active ? Color.accentColor : .secondary))
+					FaviconView(url: tab.url, size: 14)
 				}
 			}
 			.frame(width: 14, height: 14)

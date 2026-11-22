@@ -155,6 +155,15 @@ final class AccountStore {
 		update(id) { $0.favorites.removeAll { $0.id == fid } }
 	}
 
+	/// 즐겨찾기 막대에서 끌어 순서 바꾸기 (target 앞으로, nil 이면 맨 뒤)
+	func moveFavorite(_ fid: UUID, before target: UUID?, in id: UUID) {
+		update(id) { a in
+			guard let i = a.favorites.firstIndex(where: { $0.id == fid }) else { return }
+			let f = a.favorites.remove(at: i)
+			if let target, let j = a.favorites.firstIndex(where: { $0.id == target }) { a.favorites.insert(f, at: j) } else { a.favorites.append(f) }
+		}
+	}
+
 	func renameFavorite(_ fid: UUID, in id: UUID, to title: String) {
 		update(id) { a in if let i = a.favorites.firstIndex(where: { $0.id == fid }) { a.favorites[i].title = title } }
 	}

@@ -9,10 +9,6 @@ final class AppModel {
 	private(set) var sessions: [UUID: AccountSession] = [:]
 	/// 지금 보고 있는 계정
 	private(set) var currentID: UUID?
-	/// 즐겨찾기를 펼쳐 둔 계정
-	var expanded: Set<UUID> = Set((UserDefaults.standard.stringArray(forKey: "expanded") ?? []).compactMap(UUID.init)) {
-		didSet { UserDefaults.standard.set(expanded.map(\.uuidString), forKey: "expanded") }
-	}
 	private(set) var logs: [String] = []
 	/// 주소칸 (⌘L 로 초점)
 	@ObservationIgnored let address = AddressController()
@@ -35,6 +31,9 @@ final class AppModel {
 
 	init() {
 		Keychain.probe()
+		NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+			MainActor.assumeIsolated { self?.flush() }
+		}
 		store.moveSecretsToCloud()
 		// 다른 맥에서 계정·그룹·즐겨찾기가 바뀌면 다시 읽는다 (지워진 계정은 탭도 닫는다)
 		CloudWatcher.shared.start { [weak self] in
@@ -51,7 +50,7 @@ final class AppModel {
 		for (id, s) in sessions where store.account(id) == nil {
 			s.tearDown()
 			sessions[id] = nil
-			UserDefaults.standard.removeObject(forKey: "tabs.\(id.uuidString)")
+			StorageLocation.remove(StorageLocation.shared.tabs.appendingPathComponent(id.uuidString + ".json"))
 			Task { try? await WKWebsiteDataStore.remove(forIdentifier: id) }
 		}
 		if let id = currentID, store.account(id) == nil { select(nil) }
@@ -73,13 +72,6 @@ final class AppModel {
 		UserDefaults.standard.set(id?.uuidString, forKey: "current")
 	}
 
-	/// 즐겨찾기: 그 계정으로 바꾸고, 같은 주소 탭이 있으면 그 탭, 없으면 새 탭
-	func open(_ f: Favorite, of id: UUID) {
-		select(id)
-		guard let u = URL(string: f.url) else { return }
-		session(id).show(u)
-	}
-
 	/// 지금 탭을 즐겨찾기에 (이미 있으면 뺀다)
 	func toggleFavorite(_ tab: WebTab? = nil) {
 		guard let id = currentID, let t = tab ?? current?.active, let u = t.url else { return }
@@ -87,7 +79,6 @@ final class AppModel {
 			store.removeFavorite(f.id, from: id)
 		} else {
 			store.addFavorite(Favorite(title: t.displayTitle, url: u.absoluteString), to: id)
-			expanded.insert(id)
 		}
 	}
 
@@ -101,8 +92,7 @@ final class AppModel {
 		if let s = sessions.removeValue(forKey: a.id) { s.tearDown() }
 		if currentID == a.id { select(nil) }
 		store.delete(a)
-		UserDefaults.standard.removeObject(forKey: "tabs.\(a.id.uuidString)")
-		expanded.remove(a.id)
+		StorageLocation.remove(StorageLocation.shared.tabs.appendingPathComponent(a.id.uuidString + ".json"))
 		Task {
 			try? await Task.sleep(for: .milliseconds(500))
 			try? await WKWebsiteDataStore.remove(forIdentifier: a.id)
@@ -115,6 +105,9 @@ final class AppModel {
 		log("[\(a.name)] 웹 데이터(로그인) 지움")
 		if let s = sessions[a.id] { s.active?.load(a.home) }
 	}
+
+	/// 앱을 끝낼 때 모아 둔 탭 기억을 쓴다
+	func flush() { sessions.values.forEach { $0.flush() } }
 
 	func log(_ s: String) {
 		let f = DateFormatter(); f.dateFormat = "HH:mm:ss"

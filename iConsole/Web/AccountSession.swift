@@ -123,13 +123,14 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 
 	/// 계정을 지울 때: 웹뷰·창을 치우고 스크립트 연결을 끊는다 (WKUserContentController 가 이 객체를 붙잡고 있다)
 	func tearDown() {
+		saveWork?.cancel()
 		for t in tabs { t.webView.stopLoading(); t.webView.removeFromSuperview() }
 		tabs.removeAll()
 		popups.forEach { $0.close() }
 		config.userContentController.removeAllScriptMessageHandlers()
 	}
 
-	// MARK: 탭 기억 (계정마다 열려 있던 탭을 다시 켤 때 되살린다)
+	// MARK: 탭 기억 (계정마다 열려 있던 탭. iCloud 로 맥끼리 같이 쓰고, 그 계정을 처음 열 때 되살린다)
 
 	private struct Memory: Codable {
 		struct Tab: Codable { var url: String; var title: String }
@@ -137,16 +138,39 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		var active: Int
 	}
 
-	private var memoryKey: String { "tabs.\(accountID.uuidString)" }
+	/// iCloud Drive Tabs/<계정 UUID>.json (예전에는 UserDefaults "tabs.<id>" 에 맥마다 따로)
+	private var memoryFile: URL { StorageLocation.shared.tabs.appendingPathComponent(accountID.uuidString + ".json") }
+	private var legacyKey: String { "tabs.\(accountID.uuidString)" }
+	/// 마지막으로 쓴 내용 (같은 내용을 iCloud 에 거듭 쓰지 않게)
+	@ObservationIgnored private var lastSaved: Data?
+	@ObservationIgnored private var saveWork: DispatchWorkItem?
 
+	/// 주소·제목은 자주 바뀌니 잠깐 모았다가 쓴다
 	private func saveTabs() {
+		saveWork?.cancel()
+		let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.writeTabs() } }
+		saveWork = work
+		DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
+	}
+
+	private func writeTabs() {
 		let list = tabs.compactMap { t in (t.url ?? t.pending).map { Memory.Tab(url: $0.absoluteString, title: t.title) } }
 		let m = Memory(tabs: list, active: tabs.firstIndex { $0.id == activeID } ?? 0)
-		UserDefaults.standard.set(try? JSONEncoder().encode(m), forKey: memoryKey)
+		guard let d = try? JSONEncoder().encode(m), d != lastSaved else { return }
+		lastSaved = d
+		StorageLocation.write(d, to: memoryFile)
+	}
+
+	/// 앱을 끝낼 때 (모아 둔 것을 바로 쓴다)
+	func flush() {
+		saveWork?.cancel()
+		writeTabs()
 	}
 
 	private func restore(home: URL) {
-		guard let d = UserDefaults.standard.data(forKey: memoryKey), let m = try? JSONDecoder().decode(Memory.self, from: d), !m.tabs.isEmpty else {
+		let d = StorageLocation.read(memoryFile) ?? UserDefaults.standard.data(forKey: legacyKey)
+		UserDefaults.standard.removeObject(forKey: legacyKey)
+		guard let d, let m = try? JSONDecoder().decode(Memory.self, from: d), !m.tabs.isEmpty else {
 			newTab(home)
 			return
 		}
@@ -173,6 +197,16 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 			return .cancel
 		}
 		return .allow
+	}
+
+	/// 다 읽으면 사이트 아이콘 주소를 찾아 받는다
+	func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {
+		guard let host = w.url?.host() else { return }
+		w.evaluateJavaScript(Favicons.finder) { result, _ in
+			MainActor.assumeIsolated {
+				if let s = result as? String, let u = URL(string: s) { Favicons.shared.fetch(u, host: host) }
+			}
+		}
 	}
 
 	func webView(_ w: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError e: Error) {

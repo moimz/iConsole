@@ -3,11 +3,10 @@ import SwiftUI
 /// 사이드바에서 고르는 것
 enum SidebarItem: Hashable {
 	case account(UUID)
-	case favorite(UUID, UUID)
 }
 
 /// 계정 목록 (내가 만든 그룹별, iSQL 서버 목록과 같은 모양).
-/// 계정을 누르면 그 계정의 탭들로 바뀌고, 즐겨찾기가 있으면 꺾쇠로 펼쳐 즐겨찾기를 본다.
+/// 계정을 누르면 그 계정의 탭들로 바뀐다. 즐겨찾기는 사이드바가 아니라 탭 줄 위 즐겨찾기 막대에 (사용자 2026-11-23: 사이드바에 주렁주렁 달리는 게 별로).
 /// 계정을 끌어 그룹을 옮기거나 순서를 바꾸고, 그룹 머리를 끌어 그룹 순서를 바꾼다
 struct Sidebar: View {
 	@Environment(AppModel.self) private var model
@@ -18,7 +17,6 @@ struct Sidebar: View {
 	@State private var deleting: Account?
 	@State private var deletingGroup: String?
 	@State private var renamingGroup: String?
-	@State private var renamingFavorite: (account: UUID, favorite: Favorite)?
 	@State private var newName = ""
 
 	private var store: AccountStore { model.store }
@@ -28,7 +26,7 @@ struct Sidebar: View {
 			ForEach(store.grouped, id: \.group) { g in
 				Section {
 					ForEach(g.accounts) { a in
-						accountTree(a)
+						accountRow(a)
 					}
 					.onInsert(of: [.utf8PlainText, .plainText]) { index, providers in
 						insert(providers, group: g.group, accounts: g.accounts, at: index)
@@ -83,10 +81,6 @@ struct Sidebar: View {
 			switch item {
 			case .account(let id)?:
 				model.select(id)
-			case .favorite(let a, let f)?:
-				if let fav = store.account(a)?.favorites.first(where: { $0.id == f }) { model.open(fav, of: a) }
-				// 즐겨찾기는 누르는 단추처럼: 고른 표시는 계정 줄로 돌린다 (같은 즐겨찾기를 다시 눌러도 열리게)
-				selection = .account(a)
 			case nil:
 				break
 			}
@@ -122,40 +116,6 @@ struct Sidebar: View {
 		.sheet(isPresented: Binding(get: { renamingGroup != nil }, set: { if !$0 { renamingGroup = nil } })) {
 			NameSheet(title: "그룹 이름 바꾸기", name: $newName, taken: { n in n != renamingGroup && store.groups.contains(n) }) {
 				if let g = renamingGroup { store.renameGroup(g, to: newName) }
-			}
-		}
-		.sheet(isPresented: Binding(get: { renamingFavorite != nil }, set: { if !$0 { renamingFavorite = nil } })) {
-			NameSheet(title: "즐겨찾기 이름 바꾸기", name: $newName, taken: { _ in false }) {
-				if let r = renamingFavorite { store.renameFavorite(r.favorite.id, in: r.account, to: newName) }
-			}
-		}
-	}
-
-	/// 계정 줄. 즐겨찾기가 있으면 꺾쇠로 펼친다
-	@ViewBuilder
-	private func accountTree(_ a: Account) -> some View {
-		Group {
-			if a.favorites.isEmpty {
-				accountRow(a)
-			} else {
-				DisclosureGroup(isExpanded: Binding(get: { model.expanded.contains(a.id) },
-				                                    set: { if $0 { model.expanded.insert(a.id) } else { model.expanded.remove(a.id) } })) {
-					ForEach(a.favorites) { f in
-						FavoriteRow(favorite: f)
-							.tag(SidebarItem.favorite(a.id, f.id))
-							.contextMenu {
-								Button("이름 바꾸기…") { newName = f.title; renamingFavorite = (a.id, f) }
-								Button("주소 복사") {
-									NSPasteboard.general.clearContents()
-									NSPasteboard.general.setString(f.url, forType: .string)
-								}
-								Divider()
-								Button("즐겨찾기에서 빼기", role: .destructive) { store.removeFavorite(f.id, from: a.id) }
-							}
-					}
-				} label: {
-					accountRow(a)
-				}
 			}
 		}
 	}
@@ -267,21 +227,6 @@ struct AccountRow: View {
 			}
 		}
 		.padding(.vertical, 2)
-	}
-}
-
-struct FavoriteRow: View {
-	let favorite: Favorite
-	var body: some View {
-		Label {
-			VStack(alignment: .leading, spacing: 0) {
-				Text(favorite.title).lineLimit(1)
-				Text(URL(string: favorite.url)?.host() ?? favorite.url).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-			}
-		} icon: {
-			Image(systemName: "star.fill").foregroundStyle(.yellow).font(.system(size: 11))
-		}
-		.help(favorite.url)
 	}
 }
 

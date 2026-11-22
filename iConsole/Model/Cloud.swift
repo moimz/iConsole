@@ -10,6 +10,8 @@ final class StorageLocation: @unchecked Sendable {
 	let accounts: URL
 	/// 그룹 이름과 순서 (계정이 없는 그룹도 있다)
 	let groups: URL
+	/// 계정마다 열린 탭 (Tabs/<계정 UUID>.json, 다른 맥에서 그 계정을 처음 열 때 되살린다)
+	let tabs: URL
 	let isCloud: Bool
 
 	static let local: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -24,8 +26,10 @@ final class StorageLocation: @unchecked Sendable {
 		let root = cloud ?? Self.local
 		accounts = root.appendingPathComponent("Accounts", isDirectory: true)
 		groups = root.appendingPathComponent("groups.json")
+		tabs = root.appendingPathComponent("Tabs", isDirectory: true)
 		isCloud = cloud != nil
 		try? fm.createDirectory(at: accounts, withIntermediateDirectories: true)
+		try? fm.createDirectory(at: tabs, withIntermediateDirectories: true)
 	}
 
 	/// 아직 내려받지 않은 파일(.이름.json.icloud)의 id. 다시 읽을 때 지워진 것으로 보지 않는다
@@ -43,6 +47,10 @@ final class StorageLocation: @unchecked Sendable {
 			try? FileManager.default.startDownloadingUbiquitousItem(at: accounts.appendingPathComponent(id.uuidString + ".json"))
 		}
 		try? FileManager.default.startDownloadingUbiquitousItem(at: groups)
+		guard isCloud else { return }
+		for n in (try? FileManager.default.contentsOfDirectory(atPath: tabs.path)) ?? [] where n.hasPrefix(".") && n.hasSuffix(".json.icloud") {
+			try? FileManager.default.startDownloadingUbiquitousItem(at: tabs.appendingPathComponent(String(n.dropFirst().dropLast(".icloud".count))))
+		}
 	}
 
 	/// iCloud 가 함께 쓰는 파일이라 조율해서 쓴다
