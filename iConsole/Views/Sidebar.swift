@@ -65,6 +65,16 @@ struct Sidebar: View {
 				}
 			}
 		}
+		// 목록 끝을 흐리게 가리는 막대 + 유리 알약 (iSQL)
+		.safeAreaBar(edge: .bottom) {
+			HStack {
+				SyncStatus(isCloud: store.isCloud)
+					.padding(.horizontal, 10).padding(.vertical, 6)
+					.glassEffect(.regular, in: Capsule())
+				Spacer(minLength: 0)
+			}
+			.padding(10)
+		}
 		.onAppear { selection = model.currentID.map(SidebarItem.account) }
 		.onChange(of: model.currentID) { _, id in
 			if let id, selection != .account(id) { selection = .account(id) }
@@ -300,6 +310,19 @@ struct ServiceIcon: View {
 				}
 			}
 			.foregroundStyle(.white)
+	}
+}
+
+/// 사이드바 아래: iCloud 동기화 여부 한 줄 (계정 목록과 키체인 둘 다 iCloud 여야 동기화)
+struct SyncStatus: View {
+	let isCloud: Bool
+	var body: some View {
+		let synced = isCloud && Keychain.mode != .localOnly
+		Label(synced ? "iCloud 동기화" : "이 맥에만 저장", systemImage: synced ? "checkmark.icloud" : "icloud.slash")
+			.font(.caption)
+			.foregroundStyle(synced ? Color.secondary : Color.orange)
+			.help(synced ? "계정 목록·그룹·즐겨찾기와 암호·OTP(키체인)가 iCloud 로 다른 맥과 동기화됩니다. 로그인(쿠키)·열린 탭은 맥마다 따로입니다."
+			             : (isCloud ? "암호·OTP 가 이 맥 키체인에만 저장됩니다" : "계정 목록이 이 맥에만 저장됩니다 (iCloud Drive 를 켜 주세요)"))
 	}
 }
 

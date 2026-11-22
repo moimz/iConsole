@@ -34,10 +34,27 @@ final class AppModel {
 	}
 
 	init() {
+		Keychain.probe()
+		store.moveSecretsToCloud()
+		// 다른 맥에서 계정·그룹·즐겨찾기가 바뀌면 다시 읽는다 (지워진 계정은 탭도 닫는다)
+		CloudWatcher.shared.start { [weak self] in
+			MainActor.assumeIsolated { self?.reloadFromCloud() }
+		}
 		// 마지막에 보던 계정
 		if let s = UserDefaults.standard.string(forKey: "current"), let id = UUID(uuidString: s), store.account(id) != nil {
 			currentID = id
 		}
+	}
+
+	private func reloadFromCloud() {
+		store.load()
+		for (id, s) in sessions where store.account(id) == nil {
+			s.tearDown()
+			sessions[id] = nil
+			UserDefaults.standard.removeObject(forKey: "tabs.\(id.uuidString)")
+			Task { try? await WKWebsiteDataStore.remove(forIdentifier: id) }
+		}
+		if let id = currentID, store.account(id) == nil { select(nil) }
 	}
 
 	var currentAccount: Account? { store.account(currentID) }

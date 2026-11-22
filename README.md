@@ -34,14 +34,15 @@ AWS · Lightsail, 구글(Cloud · Play) 콘솔, 애플 개발자 계정을 **계
 ## 데이터 위치
 | 무엇 | 어디 |
 |---|---|
-| 계정 목록 · 즐겨찾기 | `~/Library/Application Support/iConsole/accounts.json` |
-| 그룹 | `~/Library/Application Support/iConsole/groups.json` |
-| 암호 · OTP | 이 맥 로그인 키체인 (서비스 `com.moimz.iConsole`) |
-| 계정별 로그인(웹 데이터) | WebKit 저장소 (계정 UUID) |
+| 계정 · 즐겨찾기 | iCloud Drive 앱 전용 폴더 `iCloud.com.moimz.iConsole/Data/Accounts/<UUID>.json` (계정마다 하나, 맥끼리 동기화) |
+| 그룹 | 같은 폴더 `Data/groups.json` |
+| 암호 · OTP | iCloud 키체인 동기화 항목 (서비스 `com.moimz.iConsole`, 접근 그룹 `XSDBV8D2XL.com.moimz.iConsole`) |
+| 계정별 로그인(웹 데이터) | WebKit 저장소 (계정 UUID, 맥마다 따로) |
+
+iCloud Drive 나 iCloud 키체인을 못 쓰면 이 맥(`~/Library/Application Support/iConsole`, 로그인 키체인)에 두고 사이드바 아래에 "이 맥에만 저장" 이 뜬다.
 | 열린 탭 · 마지막 계정 | 앱 설정(UserDefaults) |
 
 ## 아직 안 되는 것
-- iCloud 동기화 (맥끼리 계정 · 키체인 공유)
 - 앱 안 웹뷰에서 패스키 · 애플 암호 자동 완성 (macOS 가 브라우저 권한 없는 앱에 막는다)
 - AWS 액세스 키로 콘솔 바로 들어가기(페더레이션), App Store Connect API 화면
 
