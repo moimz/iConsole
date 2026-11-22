@@ -5,7 +5,7 @@ import Observation
 /// 계정 하나의 탭 묶음. 웹 저장소는 계정마다 하나(계정 UUID)이고, 그 계정의 탭들이 같이 쓴다.
 /// 사이드바에서 계정을 바꾸면 이 묶음이 통째로 바뀌어 보인다 (웹뷰는 살아 있어 로그인·페이지 그대로)
 @Observable @MainActor
-final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply {
+final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply, WKHTTPCookieStoreObserver {
 	let accountID: UUID
 	private(set) var tabs: [WebTab] = []
 	private(set) var activeID: WebTab.ID?
@@ -31,6 +31,7 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		ucc.addUserScript(WKUserScript(source: Scripts.filler, injectionTime: .atDocumentEnd, forMainFrameOnly: false, in: world))
 		ucc.addScriptMessageHandler(self, contentWorld: world, name: "icfill")
 		config.userContentController = ucc
+		config.websiteDataStore.httpCookieStore.add(self)
 		restore(home: account.home)
 	}
 
@@ -183,6 +184,40 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 	private func tab(of w: WKWebView) -> WebTab? { tabs.first { $0.webView === w } }
 
 	private func log(_ s: String) { model?.log("[\(account?.name ?? "?")] \(s)") }
+
+	// MARK: 세션 쿠키 살려 두기
+
+	/// 애플 개발자 사이트처럼 로그인 쿠키(myacinfo 등)를 "세션 쿠키"(만료 없음)로 주는 곳은
+	/// 앱을 끄면 WebKit 이 지워서 다시 켤 때마다 로그인이 풀렸다 (사용자 2026-11-23: 애플이 자주 풀린다).
+	/// 쿠키가 바뀌면 잠깐 모았다가 세션 쿠키를 30일짜리 쿠키로 다시 넣는다 (서버가 정한 만료는 어쩔 수 없다)
+	@ObservationIgnored private var cookieWork: DispatchWorkItem?
+	static let keepSessionDays: Double = 30
+
+	nonisolated func cookiesDidChange(in store: WKHTTPCookieStore) {
+		Task { @MainActor in self.scheduleCookieKeep(store) }
+	}
+
+	private func scheduleCookieKeep(_ store: WKHTTPCookieStore) {
+		cookieWork?.cancel()
+		let work = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.keepSessionCookies(store) } }
+		cookieWork = work
+		DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
+	}
+
+	private func keepSessionCookies(_ store: WKHTTPCookieStore) {
+		Task { @MainActor in
+			let cookies = await store.allCookies()
+			var kept = 0
+			for c in cookies where c.isSessionOnly {
+				var p = c.properties ?? [:]
+				p.removeValue(forKey: .discard)
+				p.removeValue(forKey: .maximumAge)
+				p[.expires] = Date().addingTimeInterval(Self.keepSessionDays * 86400)
+				if let n = HTTPCookie(properties: p) { await store.setCookie(n); kept += 1 }
+			}
+			if kept > 0 { log("세션 쿠키 \(kept)개를 \(Int(Self.keepSessionDays))일 쿠키로 남김") }
+		}
+	}
 
 	// MARK: 이동
 

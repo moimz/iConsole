@@ -114,7 +114,7 @@ struct SettingsView: View {
 	var body: some View {
 		TabView(selection: $tab) {
 			Tab("일반", systemImage: "gearshape", value: "general") {
-				GeneralSettingsPage().frame(width: Self.width, height: 400)
+				GeneralSettingsPage().frame(width: Self.width, height: 480)
 			}
 			Tab("MCP", systemImage: "point.3.connected.trianglepath.dotted", value: "mcp") {
 				MCPSettingsPage().frame(width: Self.width, height: 680)
@@ -135,6 +135,15 @@ private struct GeneralSettingsPage: View {
 	var body: some View {
 		@Bindable var model = model
 		Form {
+			Section {
+				Picker("화면 모드", selection: $model.appearance) {
+					Text("시스템 설정에 따름").tag("system")
+					Text("라이트 모드").tag("light")
+					Text("다크 모드").tag("dark")
+				}
+			} footer: {
+				Text("웹 페이지도 이 모드를 따릅니다 (다크 모드를 지원하는 사이트).").foregroundStyle(.tertiary)
+			}
 			Section {
 				Toggle("채운 뒤 다음 버튼까지 누르기", isOn: $model.autoSubmit)
 			} header: {

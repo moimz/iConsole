@@ -25,6 +25,19 @@ final class AppModel {
 		}
 	}
 
+	/// 화면 모드: system / light / dark (웹 페이지의 다크 모드도 이걸 따른다)
+	var appearance = UserDefaults.standard.string(forKey: "appearance") ?? "system" {
+		didSet { UserDefaults.standard.set(appearance, forKey: "appearance"); applyAppearance() }
+	}
+
+	func applyAppearance() {
+		NSApp.appearance = switch appearance {
+		case "light": NSAppearance(named: .aqua)
+		case "dark": NSAppearance(named: .darkAqua)
+		default: nil
+		}
+	}
+
 	var userAgent: String? {
 		safariUA ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15" : nil
 	}
@@ -33,6 +46,7 @@ final class AppModel {
 		Keychain.probe()
 		MCPServer.shared.model = self
 		MCPServer.shared.startIfEnabled()
+		DispatchQueue.main.async { [weak self] in self?.applyAppearance() }
 		NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
 			MainActor.assumeIsolated { self?.flush() }
 		}
