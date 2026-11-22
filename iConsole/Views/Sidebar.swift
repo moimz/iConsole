@@ -121,9 +121,9 @@ struct Sidebar: View {
 	}
 
 	private func accountRow(_ a: Account) -> some View {
-		AccountRow(account: a, open: model.sessions[a.id] != nil)
+		AccountRow(account: a, openTabs: model.sessions[a.id]?.tabs.count ?? 0)
 			.tag(SidebarItem.account(a.id))
-			.draggable(DragItem.account(a.id)) { DragGhost { AccountRow(account: a, open: false) } }
+			.draggable(DragItem.account(a.id)) { DragGhost { AccountRow(account: a) } }
 			.contextMenu {
 				Button("수정…") { edit(a) }
 				Menu("그룹으로 옮기기") {
@@ -212,8 +212,8 @@ struct GroupHeader: View {
 /// 계정 줄: [서비스 아이콘] 이름 / 아이디 (iSQL 서버 줄 모양)
 struct AccountRow: View {
 	let account: Account
-	/// 이 앱을 켠 뒤 열어 본 계정 (탭이 살아 있음)
-	var open = false
+	/// 이 앱을 켠 뒤 열어 본 계정의 열린 탭 수 (0 이면 안 보인다)
+	var openTabs = 0
 	var body: some View {
 		HStack(spacing: 9) {
 			ServiceIcon(kind: account.kind, size: 30)
@@ -221,9 +221,13 @@ struct AccountRow: View {
 				Text(account.name).lineLimit(1)
 				Text(account.username).font(.caption).foregroundStyle(.secondary).lineLimit(1)
 			}
-			if open {
+			// iSQL 서버 줄의 "접속 중" 자리·모양에 열린 탭 수만
+			if openTabs > 0 {
 				Spacer(minLength: 4)
-				Circle().fill(Color.green).frame(width: 6, height: 6).help("열려 있는 계정")
+				Text("\(openTabs)").font(.caption2).monospacedDigit()
+					.padding(.horizontal, 6).padding(.vertical, 2)
+					.background(Capsule().fill(Color.green.opacity(0.2))).foregroundStyle(.green)
+					.help("열린 탭 \(openTabs)개")
 			}
 		}
 		.padding(.vertical, 2)
