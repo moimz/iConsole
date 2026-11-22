@@ -45,14 +45,8 @@ struct BrowserPane: View {
 					.help("앞으로 (⌘])")
 			}
 			// 동작 자리(.primaryAction)는 제목을 숨긴 창에서 왼쪽부터 흐른다 → 양옆 빈 칸으로 주소칸을 가운데쯤에 (inPlayer 웹 탐색)
-			ToolbarItem(placement: .primaryAction) {
-				Button("새로고침", systemImage: tab?.isLoading == true ? "xmark" : "arrow.clockwise") {
-					guard let tab else { return }
-					if tab.isLoading { tab.webView.stopLoading() } else { tab.webView.reload() }
-				}
-				.help(tab?.isLoading == true ? "멈추기" : "새로고침 (⌘R)")
-			}
 			ToolbarSpacer(.flexible)
+			// Safari 처럼 한 알약 안에 [☆ 주소 ↻] (사용자 2026-11-23: 주소칸은 더 넓게, 새로고침은 주소칸에)
 			ToolbarItemGroup(placement: .primaryAction) {
 				let fav = model.favorite(for: tab?.url, in: session.accountID) != nil
 				Button(fav ? "즐겨찾기 편집" : "즐겨찾기에 추가", systemImage: fav ? "star.fill" : "star") { model.editFavorite() }
@@ -63,10 +57,20 @@ struct BrowserPane: View {
 					if let tab { tab.load(u) } else { session.newTab(u) }
 				}
 				.padding(.horizontal, 6)
-				.frame(minWidth: 160, idealWidth: 460, maxWidth: 620, minHeight: 28, maxHeight: 28)
+				.frame(minWidth: 200, idealWidth: 900, maxWidth: 1200, minHeight: 28, maxHeight: 28)
+				Button("새로고침", systemImage: tab?.isLoading == true ? "xmark" : "arrow.clockwise") {
+					guard let tab else { return }
+					if tab.isLoading { tab.webView.stopLoading() } else { tab.webView.reload() }
+				}
+				.disabled(tab == nil)
+				.help(tab?.isLoading == true ? "멈추기" : "새로고침 (⌘R)")
 			}
-			// 새 탭(+)은 탭 줄 오른쪽 끝에만 둔다 (제목줄에도 두면 사이드바 + 와 헷갈린다)
 			ToolbarSpacer(.flexible)
+			// 새 탭은 제목줄 오른쪽 끝 + 하나 (사용자 2026-11-23, 탭 줄의 + 는 뺐다)
+			ToolbarItem(placement: .primaryAction) {
+				Button("새 탭", systemImage: "plus") { session.newTab() }
+					.help("새 탭 (⌘T)")
+			}
 		}
 	}
 
@@ -115,13 +119,6 @@ struct TabBar: View {
 			}
 			// 탭을 옮기면 탭바 안에서만 짧게 미끄러지게 (바깥 묶음에 animation 을 걸지 않는다, Ai/iSQL.md 성능 규칙)
 			.animation(.easeOut(duration: 0.18), value: session.tabs.map(\.id))
-			Button { session.newTab() } label: {
-				Image(systemName: "plus").font(.system(size: 12, weight: .medium)).frame(width: 30, height: 30).contentShape(Rectangle())
-			}
-			.buttonStyle(.plain)
-			.foregroundStyle(.secondary)
-			.help("새 탭 (⌘T)")
-			.padding(.horizontal, 4)
 		}
 		.frame(height: 36)
 		// 색 배경은 기본으로 제목바 밑까지 번진다 → 탭바 안에만 (Ai/iSQL.md)

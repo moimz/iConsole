@@ -106,8 +106,31 @@ struct LogView: View {
 	}
 }
 
+/// 앱 설정 (⌘,). iSQL 앱 설정처럼 폭은 탭마다 같고 높이만 바뀐다
 struct SettingsView: View {
+	static let width: CGFloat = 620
+	@AppStorage("settingsTab") private var tab = "general"
+
+	var body: some View {
+		TabView(selection: $tab) {
+			Tab("일반", systemImage: "gearshape", value: "general") {
+				GeneralSettingsPage().frame(width: Self.width, height: 400)
+			}
+			Tab("MCP", systemImage: "point.3.connected.trianglepath.dotted", value: "mcp") {
+				MCPSettingsPage().frame(width: Self.width, height: 320)
+			}
+		}
+		.background(SettingsWindowStyler())
+	}
+}
+
+private struct GeneralSettingsPage: View {
 	@Environment(AppModel.self) private var model
+	private var version: String {
+		let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+		let b = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+		return "\(v) (\(b))"
+	}
 
 	var body: some View {
 		@Bindable var model = model
@@ -117,18 +140,52 @@ struct SettingsView: View {
 			} header: {
 				Text("로그인 채우기")
 			} footer: {
-				Text("끄면 칸만 채우고 엔터는 직접 누릅니다. CAPTCHA 가 보이면 켜 두어도 누르지 않습니다.")
-					.font(.caption).foregroundStyle(.secondary)
+				Text("끄면 칸만 채우고 엔터는 직접 누릅니다. CAPTCHA 가 보이면 켜 두어도 누르지 않습니다.").foregroundStyle(.tertiary)
 			}
 			Section {
 				Toggle("Safari 로 보이기 (User-Agent)", isOn: $model.safariUA)
 			} header: {
 				Text("웹")
 			} footer: {
-				Text("사이트가 앱 안 웹뷰를 막을 때 켭니다.").font(.caption).foregroundStyle(.secondary)
+				Text("사이트가 앱 안 웹뷰를 막을 때 켭니다.").foregroundStyle(.tertiary)
+			}
+			Section {
+				LabeledContent("버전") { Text(version).foregroundStyle(.secondary).monospacedDigit() }
 			}
 		}
 		.formStyle(.grouped)
-		.frame(width: 440)
 	}
+}
+
+/// 설정 > MCP (AI 도구가 앱을 쓰게 하는 로컬 서버). 서버는 아직 만들기 전 — Ai.md 11번 모양으로 채운다
+private struct MCPSettingsPage: View {
+	var body: some View {
+		Form {
+			Section {
+				LabeledContent("MCP 서버") { Text("준비 중").foregroundStyle(.secondary) }
+			} footer: {
+				Text("Claude Code 같은 AI 도구가 계정의 탭을 열고, 페이지를 읽고, 설정을 바꾸게 하는 기능입니다. 이 맥 안(127.0.0.1)에서만 받고, 암호·OTP 는 MCP 로 넘기지 않습니다.")
+					.foregroundStyle(.tertiary)
+			}
+		}
+		.formStyle(.grouped)
+	}
+}
+
+/// 설정 창을 맥 설정창 모양으로 (iSQL ServerSettingsView.swift 의 SettingsWindowStyler 그대로)
+struct SettingsWindowStyler: NSViewRepresentable {
+	final class Probe: NSView {
+		override func viewDidMoveToWindow() {
+			super.viewDidMoveToWindow()
+			guard let w = window else { return }
+			DispatchQueue.main.async {
+				w.styleMask.remove(.fullSizeContentView)
+				w.titlebarAppearsTransparent = false
+				w.titlebarSeparatorStyle = .line
+				w.toolbarStyle = .preference
+			}
+		}
+	}
+	func makeNSView(context: Context) -> Probe { Probe() }
+	func updateNSView(_ v: Probe, context: Context) {}
 }
