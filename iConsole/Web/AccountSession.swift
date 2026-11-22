@@ -47,6 +47,7 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		w.isInspectable = true
 		w.allowsBackForwardNavigationGestures = true
 		w.customUserAgent = model?.userAgent
+		w.appearance = model?.webViewAppearance
 		return w
 	}
 
@@ -116,6 +117,11 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 	/// 이미 그 주소 탭이 있으면 그 탭으로, 없으면 새 탭 (사이드바 즐겨찾기)
 	func show(_ url: URL) {
 		if let t = tabs.first(where: { $0.url?.absoluteString == url.absoluteString }) { select(t.id) } else { newTab(url) }
+	}
+
+	func applyAppearance(_ a: NSAppearance?) {
+		for t in tabs { t.webView.appearance = a }
+		for w in popups { w.contentView?.appearance = a }
 	}
 
 	func applyUserAgent(_ ua: String?) {

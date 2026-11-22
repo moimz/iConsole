@@ -25,13 +25,16 @@ final class AppModel {
 		}
 	}
 
-	/// 화면 모드: system / light / dark (웹 페이지의 다크 모드도 이걸 따른다)
-	var appearance = UserDefaults.standard.string(forKey: "appearance") ?? "system" {
-		didSet { UserDefaults.standard.set(appearance, forKey: "appearance"); applyAppearance() }
+	/// 웹 페이지 모드: system / light / dark. 앱은 늘 시스템 설정을 따르고, 웹뷰 안 사이트(prefers-color-scheme)만 바꾼다 (사용자 2026-11-23)
+	var webAppearance = UserDefaults.standard.string(forKey: "webAppearance") ?? "system" {
+		didSet {
+			UserDefaults.standard.set(webAppearance, forKey: "webAppearance")
+			sessions.values.forEach { $0.applyAppearance(webViewAppearance) }
+		}
 	}
 
-	func applyAppearance() {
-		NSApp.appearance = switch appearance {
+	var webViewAppearance: NSAppearance? {
+		switch webAppearance {
 		case "light": NSAppearance(named: .aqua)
 		case "dark": NSAppearance(named: .darkAqua)
 		default: nil
@@ -46,7 +49,6 @@ final class AppModel {
 		Keychain.probe()
 		MCPServer.shared.model = self
 		MCPServer.shared.startIfEnabled()
-		DispatchQueue.main.async { [weak self] in self?.applyAppearance() }
 		NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
 			MainActor.assumeIsolated { self?.flush() }
 		}
