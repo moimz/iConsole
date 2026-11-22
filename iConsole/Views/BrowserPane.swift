@@ -31,9 +31,9 @@ struct BrowserPane: View {
 				}
 			}
 		}
-		// 번역 세션은 이 수식어로만 받는다 (번역 버튼 → configuration 이 바뀌면 다시 돈다)
-		.translationTask(PageTranslator.shared.configuration) { session in
-			await PageTranslator.shared.run(session)
+		// 번역 언어 파일이 없을 때만: 받기 창 (번역 자체는 PageTranslator 가 직접 만든 세션으로)
+		.translationTask(PageTranslator.shared.downloadConfiguration) { session in
+			await PageTranslator.shared.prepare(session)
 		}
 		.toolbar {
 			ToolbarItemGroup(placement: .navigation) {
