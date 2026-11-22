@@ -1,0 +1,67 @@
+import AppKit
+import WebKit
+import Observation
+
+/// 탭 하나 = 웹뷰 하나. 같은 계정의 탭들은 웹 저장소(로그인)를 같이 쓴다.
+/// 되살린 탭은 처음 보일 때까지 페이지를 읽지 않는다 (pending)
+@Observable @MainActor
+final class WebTab: Identifiable {
+	let id = UUID()
+	let webView: WKWebView
+	private(set) var title = ""
+	private(set) var url: URL?
+	private(set) var isLoading = false
+	private(set) var progress = 0.0
+	private(set) var canGoBack = false
+	private(set) var canGoForward = false
+	/// 아직 읽지 않은 주소 (되살린 탭)
+	private(set) var pending: URL?
+
+	@ObservationIgnored private var observers: [NSKeyValueObservation] = []
+	/// 주소·제목이 바뀌면 (탭 기억 저장)
+	@ObservationIgnored var onChange: (() -> Void)?
+
+	init(webView: WKWebView, pending: URL? = nil, title: String = "") {
+		self.webView = webView
+		self.pending = pending
+		self.url = pending
+		self.title = title
+		observers = [
+			webView.observe(\.title) { [weak self] w, _ in MainActor.assumeIsolated { self?.update(w) } },
+			webView.observe(\.url) { [weak self] w, _ in MainActor.assumeIsolated { self?.update(w) } },
+			webView.observe(\.isLoading) { [weak self] w, _ in MainActor.assumeIsolated { self?.update(w) } },
+			webView.observe(\.estimatedProgress) { [weak self] w, _ in MainActor.assumeIsolated { self?.progress = w.estimatedProgress } },
+			webView.observe(\.canGoBack) { [weak self] w, _ in MainActor.assumeIsolated { self?.canGoBack = w.canGoBack } },
+			webView.observe(\.canGoForward) { [weak self] w, _ in MainActor.assumeIsolated { self?.canGoForward = w.canGoForward } },
+		]
+	}
+
+	private func update(_ w: WKWebView) {
+		guard pending == nil else { return }
+		let t = w.title ?? ""
+		let changed = (!t.isEmpty && t != title) || (w.url != nil && w.url != url)
+		if !t.isEmpty { title = t }
+		if let u = w.url { url = u }
+		isLoading = w.isLoading
+		if changed { onChange?() }
+	}
+
+	/// 보일 때 한 번: 되살린 탭이면 이제 읽는다
+	func wake() {
+		guard let p = pending else { return }
+		pending = nil
+		webView.load(URLRequest(url: p))
+	}
+
+	func load(_ u: URL) {
+		pending = nil
+		url = u
+		webView.load(URLRequest(url: u))
+	}
+
+	/// 탭 이름: 제목 → 주소의 호스트 → "새 탭"
+	var displayTitle: String {
+		if !title.isEmpty { return title }
+		return url?.host() ?? "새 탭"
+	}
+}

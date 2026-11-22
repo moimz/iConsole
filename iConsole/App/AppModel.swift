@@ -1,0 +1,109 @@
+import AppKit
+import WebKit
+import Observation
+
+/// 앱 전체 상태: 계정 목록, 계정별 탭 묶음(처음 고를 때 만든다), 지금 계정, 설정, 기록
+@Observable @MainActor
+final class AppModel {
+	let store = AccountStore()
+	private(set) var sessions: [UUID: AccountSession] = [:]
+	/// 지금 보고 있는 계정
+	private(set) var currentID: UUID?
+	/// 즐겨찾기를 펼쳐 둔 계정
+	var expanded: Set<UUID> = Set((UserDefaults.standard.stringArray(forKey: "expanded") ?? []).compactMap(UUID.init)) {
+		didSet { UserDefaults.standard.set(expanded.map(\.uuidString), forKey: "expanded") }
+	}
+	private(set) var logs: [String] = []
+	/// 주소칸 (⌘L 로 초점)
+	@ObservationIgnored let address = AddressController()
+
+	/// 로그인 칸을 채운 뒤 다음 버튼까지 누를지 (기본은 채우기만, 엔터는 사용자가)
+	var autoSubmit = UserDefaults.standard.bool(forKey: "autoSubmit2") {
+		didSet { UserDefaults.standard.set(autoSubmit, forKey: "autoSubmit2") }
+	}
+	/// Safari 처럼 보이는 UA ("Version/… Safari/…" 꼬리)
+	var safariUA = UserDefaults.standard.bool(forKey: "safariUA") {
+		didSet {
+			UserDefaults.standard.set(safariUA, forKey: "safariUA")
+			sessions.values.forEach { $0.applyUserAgent(userAgent) }
+		}
+	}
+
+	var userAgent: String? {
+		safariUA ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15" : nil
+	}
+
+	init() {
+		// 마지막에 보던 계정
+		if let s = UserDefaults.standard.string(forKey: "current"), let id = UUID(uuidString: s), store.account(id) != nil {
+			currentID = id
+		}
+	}
+
+	var currentAccount: Account? { store.account(currentID) }
+	var current: AccountSession? { currentID.map(session) }
+
+	func session(_ id: UUID) -> AccountSession {
+		if let s = sessions[id] { return s }
+		let s = AccountSession(account: store.account(id)!, model: self)
+		sessions[id] = s
+		return s
+	}
+
+	func select(_ id: UUID?) {
+		guard id != currentID else { return }
+		currentID = id
+		UserDefaults.standard.set(id?.uuidString, forKey: "current")
+	}
+
+	/// 즐겨찾기: 그 계정으로 바꾸고, 같은 주소 탭이 있으면 그 탭, 없으면 새 탭
+	func open(_ f: Favorite, of id: UUID) {
+		select(id)
+		guard let u = URL(string: f.url) else { return }
+		session(id).show(u)
+	}
+
+	/// 지금 탭을 즐겨찾기에 (이미 있으면 뺀다)
+	func toggleFavorite(_ tab: WebTab? = nil) {
+		guard let id = currentID, let t = tab ?? current?.active, let u = t.url else { return }
+		if let f = favorite(for: u, in: id) {
+			store.removeFavorite(f.id, from: id)
+		} else {
+			store.addFavorite(Favorite(title: t.displayTitle, url: u.absoluteString), to: id)
+			expanded.insert(id)
+		}
+	}
+
+	func favorite(for url: URL?, in id: UUID?) -> Favorite? {
+		guard let url else { return nil }
+		return store.account(id)?.favorites.first { $0.url == url.absoluteString }
+	}
+
+	/// 계정 삭제: 탭·웹 저장소·키체인 항목까지
+	func delete(_ a: Account) {
+		if let s = sessions.removeValue(forKey: a.id) { s.tearDown() }
+		if currentID == a.id { select(nil) }
+		store.delete(a)
+		UserDefaults.standard.removeObject(forKey: "tabs.\(a.id.uuidString)")
+		expanded.remove(a.id)
+		Task {
+			try? await Task.sleep(for: .milliseconds(500))
+			try? await WKWebsiteDataStore.remove(forIdentifier: a.id)
+		}
+	}
+
+	/// 그 계정의 쿠키·로그인을 지운다 (탭은 시작 주소로 다시)
+	func clearWebData(_ a: Account) async {
+		await WKWebsiteDataStore(forIdentifier: a.id).removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
+		log("[\(a.name)] 웹 데이터(로그인) 지움")
+		if let s = sessions[a.id] { s.active?.load(a.home) }
+	}
+
+	func log(_ s: String) {
+		let f = DateFormatter(); f.dateFormat = "HH:mm:ss"
+		logs.append("\(f.string(from: Date())) \(s)")
+		if logs.count > 500 { logs.removeFirst(logs.count - 500) }
+	}
+
+	func clearLogs() { logs.removeAll() }
+}

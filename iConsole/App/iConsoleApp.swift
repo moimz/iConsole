@@ -1,0 +1,134 @@
+import SwiftUI
+
+/// iConsole: AWS·구글·애플 콘솔 계정마다 따로 된 웹 저장소(로그인)와 탭을 갖는 브라우저.
+/// 로그인 페이지에서는 저장한 아이디·암호·OTP 를 채운다
+@main
+struct iConsoleApp: App {
+	@State private var model = AppModel()
+
+	var body: some Scene {
+		// 계정마다 탭 묶음이 하나라 창도 하나
+		Window("iConsole", id: "main") {
+			ContentView()
+				.environment(model)
+				.frame(minWidth: 900, minHeight: 560)
+		}
+		.defaultSize(width: 1440, height: 900)
+		.commands { AppCommands(model: model) }
+
+		Window("기록", id: "log") {
+			LogView().environment(model)
+		}
+		.defaultSize(width: 760, height: 420)
+
+		Settings {
+			SettingsView().environment(model)
+		}
+	}
+}
+
+struct AppCommands: Commands {
+	let model: AppModel
+	@Environment(\.openWindow) private var openWindow
+
+	private var session: AccountSession? { model.current }
+	private var tab: WebTab? { session?.active }
+	/// 본 창이 앞에 있을 때만 탭 단축키 (기록·설정 창에서 ⌘W 는 그 창 닫기)
+	private var mainKey: Bool { NSApp.keyWindow?.identifier?.rawValue.hasPrefix("main") ?? false }
+
+	var body: some Commands {
+		CommandGroup(replacing: .newItem) {
+			Button("새 탭") { session?.newTab() }
+				.keyboardShortcut("t")
+				.disabled(session == nil)
+			Button("닫은 탭 다시 열기") { session?.reopenClosed() }
+				.keyboardShortcut("t", modifiers: [.command, .shift])
+				.disabled(session == nil)
+			Divider()
+			Button("계정 추가…") { NotificationCenter.default.post(name: .addAccount, object: nil) }
+				.keyboardShortcut("n", modifiers: [.command, .shift])
+		}
+		CommandGroup(replacing: .saveItem) {
+			Button("탭 닫기") {
+				if mainKey, let s = session, let id = s.activeID { s.close(id) } else { NSApp.keyWindow?.performClose(nil) }
+			}
+			.keyboardShortcut("w")
+			Button("창 닫기") { NSApp.keyWindow?.performClose(nil) }
+				.keyboardShortcut("w", modifiers: [.command, .shift])
+		}
+		CommandMenu("탐색") {
+			Button("주소칸") { model.address.focus() }.keyboardShortcut("l")
+			Button("새로고침") { tab?.webView.reload() }.keyboardShortcut("r").disabled(tab == nil)
+			Button("뒤로") { tab?.webView.goBack() }.keyboardShortcut("[").disabled(tab?.canGoBack != true)
+			Button("앞으로") { tab?.webView.goForward() }.keyboardShortcut("]").disabled(tab?.canGoForward != true)
+			Divider()
+			Button("다음 탭") { session?.cycle(1) }.keyboardShortcut(.tab, modifiers: .control)
+			Button("이전 탭") { session?.cycle(-1) }.keyboardShortcut(.tab, modifiers: [.control, .shift])
+			Button("다음 탭 ") { session?.cycle(1) }.keyboardShortcut("]", modifiers: [.command, .shift])
+			Button("이전 탭 ") { session?.cycle(-1) }.keyboardShortcut("[", modifiers: [.command, .shift])
+			Divider()
+			Button(model.favorite(for: tab?.url, in: model.currentID) != nil ? "즐겨찾기에서 빼기" : "즐겨찾기에 추가") { model.toggleFavorite() }
+				.keyboardShortcut("d")
+				.disabled(tab?.url == nil)
+			Divider()
+			Button("확대") { tab.map { $0.webView.pageZoom = min(3, $0.webView.pageZoom + 0.1) } }.keyboardShortcut("+")
+			Button("축소") { tab.map { $0.webView.pageZoom = max(0.5, $0.webView.pageZoom - 0.1) } }.keyboardShortcut("-")
+			Button("실제 크기") { tab?.webView.pageZoom = 1 }.keyboardShortcut("0")
+		}
+		CommandGroup(after: .windowArrangement) {
+			Button("기록") { openWindow(id: "log") }
+		}
+	}
+}
+
+/// 채우기·페이지 오류 기록 (아이디·암호·코드 값은 남기지 않는다)
+struct LogView: View {
+	@Environment(AppModel.self) private var model
+
+	var body: some View {
+		VStack(spacing: 0) {
+			ScrollViewReader { proxy in
+				List(Array(model.logs.enumerated()), id: \.offset) { i, line in
+					Text(line).font(.system(size: 11, design: .monospaced)).textSelection(.enabled).id(i)
+				}
+				.onChange(of: model.logs.count) { _, n in if n > 0 { proxy.scrollTo(n - 1) } }
+			}
+			HStack {
+				Spacer()
+				Button("복사") {
+					NSPasteboard.general.clearContents()
+					NSPasteboard.general.setString(model.logs.joined(separator: "\n"), forType: .string)
+				}
+				Button("지우기") { model.clearLogs() }
+			}
+			.padding(8)
+		}
+	}
+}
+
+struct SettingsView: View {
+	@Environment(AppModel.self) private var model
+
+	var body: some View {
+		@Bindable var model = model
+		Form {
+			Section {
+				Toggle("채운 뒤 다음 버튼까지 누르기", isOn: $model.autoSubmit)
+			} header: {
+				Text("로그인 채우기")
+			} footer: {
+				Text("끄면 칸만 채우고 엔터는 직접 누릅니다. CAPTCHA 가 보이면 켜 두어도 누르지 않습니다.")
+					.font(.caption).foregroundStyle(.secondary)
+			}
+			Section {
+				Toggle("Safari 로 보이기 (User-Agent)", isOn: $model.safariUA)
+			} header: {
+				Text("웹")
+			} footer: {
+				Text("사이트가 앱 안 웹뷰를 막을 때 켭니다.").font(.caption).foregroundStyle(.secondary)
+			}
+		}
+		.formStyle(.grouped)
+		.frame(width: 440)
+	}
+}
