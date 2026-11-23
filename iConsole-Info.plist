@@ -12,5 +12,10 @@
 	<true/>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
+	<!-- 암호 앱 "선택한 항목을 앱으로 내보내기" 로 열릴 때 받는 활동 (자격 증명 교환) -->
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>ASCredentialExchangeActivity</string>
+	</array>
 </dict>
 </plist>
