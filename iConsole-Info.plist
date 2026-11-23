@@ -16,6 +16,7 @@
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>ASCredentialExchangeActivity</string>
+		<string>ASCredentialExchangeActivityType</string>
 	</array>
 </dict>
 </plist>

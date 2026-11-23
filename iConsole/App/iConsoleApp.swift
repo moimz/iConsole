@@ -330,7 +330,7 @@ private struct UpdateSection: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
 	func application(_ application: NSApplication, continue userActivity: NSUserActivity,
 	                 restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void) -> Bool {
-		guard userActivity.activityType == ASCredentialExchangeActivity else { return false }
+		guard userActivity.activityType == ASCredentialExchangeActivity || userActivity.activityType == "ASCredentialExchangeActivityType" else { return false }
 		let raw = userActivity.userInfo?[ASCredentialImportToken]
 		guard let token = (raw as? UUID) ?? (raw as? String).flatMap(UUID.init) ?? (raw as? NSUUID).map({ $0 as UUID }) else { return false }
 		Task { @MainActor in await PasswordImport.shared.receive(token: token) }
