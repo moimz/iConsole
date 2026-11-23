@@ -60,4 +60,23 @@ struct TOTP {
 		}
 		return out
 	}
+
+	/// 다른 인증 앱으로 옮길 otpauth 주소 (이름표 issuer:account 를 붙인다). 넣은 값이 비밀 값만이면 기본 설정(SHA1 · 6자리 · 30초)으로
+	static func uri(_ text: String, issuer: String, account: String) -> String? {
+		let s = text.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard TOTP(s) != nil else { return nil }
+		var q: [URLQueryItem] = []
+		if s.lowercased().hasPrefix("otpauth://"), let c = URLComponents(string: s) {
+			q = (c.queryItems ?? []).filter { $0.name.lowercased() != "issuer" }
+		} else {
+			q = [URLQueryItem(name: "secret", value: s.replacingOccurrences(of: " ", with: "").uppercased())]
+		}
+		q.append(URLQueryItem(name: "issuer", value: issuer))
+		var c = URLComponents()
+		c.scheme = "otpauth"
+		c.host = "totp"
+		c.path = "/" + issuer + ":" + account
+		c.queryItems = q
+		return c.url?.absoluteString
+	}
 }

@@ -232,7 +232,7 @@ struct AccountRow: View {
 	var openTabs = 0
 	var body: some View {
 		HStack(spacing: 9) {
-			ServiceIcon(kind: account.kind, size: 30)
+			ServiceIcon(kind: account.kind, home: account.home, size: 30)
 			VStack(alignment: .leading, spacing: 1) {
 				Text(account.name).lineLimit(1)
 				Text(account.username).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -250,9 +250,12 @@ struct AccountRow: View {
 	}
 }
 
-/// 서비스 아이콘: 둥근 정사각형을 서비스 색으로 칠하고 흰 기호
+/// 서비스 아이콘: 흰 둥근 정사각형 안에 그 서비스의 실제 사이트 아이콘 (예전엔 색 바탕에 글자 "G" 를 그려 구글 같지 않았다, 사용자 2026-11-23).
+/// 애플은 시스템 기호, 사용자 정의는 시작 주소 페이지의 아이콘. 아이콘을 아직 못 받았으면 서비스 색 바탕에 기호
 struct ServiceIcon: View {
 	let kind: Account.Kind
+	/// 사용자 정의 계정의 시작 주소
+	var home: URL? = nil
 	var size: CGFloat = 30
 
 	private var color: Color {
@@ -260,21 +263,36 @@ struct ServiceIcon: View {
 		case .aws: Color(red: 0.95, green: 0.55, blue: 0.10)
 		case .google: Color(red: 0.26, green: 0.52, blue: 0.96)
 		case .apple: Color(white: 0.35)
+		case .cloudflare: Color(red: 0.96, green: 0.51, blue: 0.13)
+		case .custom: Color(white: 0.45)
 		}
 	}
 
+	private var favicon: NSImage? {
+		if let i = kind.iconURL { return Favicons.shared.image(icon: i) }
+		if kind == .custom { return Favicons.shared.image(for: home) }
+		return nil
+	}
+
 	var body: some View {
-		RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-			.fill(color)
-			.frame(width: size, height: size)
-			.overlay {
-				switch kind {
-				case .aws: Image(systemName: "cloud.fill").font(.system(size: size * 0.46, weight: .semibold))
-				case .google: Text("G").font(.system(size: size * 0.55, weight: .bold, design: .rounded))
-				case .apple: Image(systemName: "apple.logo").font(.system(size: size * 0.5, weight: .semibold))
+		if let img = favicon {
+			RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+				.fill(Color.white)
+				.frame(width: size, height: size)
+				.overlay { Image(nsImage: img).resizable().interpolation(.high).scaledToFit().frame(width: size * 0.66, height: size * 0.66) }
+		} else {
+			RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+				.fill(color)
+				.frame(width: size, height: size)
+				.overlay {
+					switch kind {
+					case .apple: Image(systemName: "apple.logo").font(.system(size: size * 0.5, weight: .semibold))
+					case .custom: Image(systemName: "globe").font(.system(size: size * 0.5, weight: .semibold))
+					default: Text(String(kind.title.prefix(1))).font(.system(size: size * 0.5, weight: .bold, design: .rounded))
+					}
 				}
-			}
-			.foregroundStyle(.white)
+				.foregroundStyle(.white)
+		}
 	}
 }
 

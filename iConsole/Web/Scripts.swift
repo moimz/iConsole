@@ -48,6 +48,12 @@ enum Scripts {
 	    submit(e, what);
 	    return true;
 	  };
+	  // 사용자 정의 계정: 칸 이름(name · id) 또는 CSS 선택자(#·.·[ 로 시작)
+	  const F = cfg.fields || {};
+	  const bySpec = spec => {
+	    if (!spec) return null;
+	    try { return /^[#.\[]/.test(spec) ? document.querySelector(spec) : (document.getElementsByName(spec)[0] || document.getElementById(spec)); } catch (e) { return null; }
+	  };
 	  let busy = false;
 	  let loggedNoCode = false;
 	  const tick = async () => {
@@ -70,16 +76,17 @@ enum Scripts {
 	          log('루트 사용자 고름 (' + (root.checked ? '됨' : '안 됨') + ')');
 	        }
 	      }
-	      const user = all('input[type=email],input#resolving_input,input[name=email],input[autocomplete~=username],input[name=identifier],input#account_name_text_field')
-	        .find(e => shown(e) && !done.has(e) && !e.value);
+	      const ok = e => e && shown(e) && !done.has(e) && !e.value;
+	      const user = (F.user ? [bySpec(F.user)] : all('input[type=email],input#resolving_input,input[name=email],input[autocomplete~=username],input[name=identifier],input#account_name_text_field,input[name=username],input[name=login],input[id=username],input[id=login]'))
+	        .find(ok);
 	      if (user) { await fill(user, 'username', '아이디'); return; }
-	      const pass = all('input[type=password]').find(e => shown(e) && !done.has(e) && !e.value && !/captcha/i.test(e.id + e.name));
+	      const pass = (F.pass ? [bySpec(F.pass)] : all('input[type=password]')).find(e => ok(e) && !/captcha/i.test(e.id + e.name));
 	      if (pass) { await fill(pass, 'password', '암호'); return; }
 	      const okCode = e => shown(e) && !done.has(e) && !e.value && e.type !== 'password' && e.type !== 'hidden' && e.type !== 'checkbox' && e.type !== 'radio' && !/captcha/i.test(e.id + e.name);
-	      let code = all('input[autocomplete=one-time-code],input[id*=mfa i],input[name*=mfa i],input[id*=otp i],input[name*=otp i],input[name=totpPin],input[id=totpPin]').find(okCode);
+	      let code = (F.otp ? [bySpec(F.otp)].filter(Boolean) : all('input[autocomplete=one-time-code],input[id*=mfa i],input[name*=mfa i],input[id*=otp i],input[name*=otp i],input[name=totpPin],input[id=totpPin],input[name*=twofactor i],input[name*=2fa i]')).find(okCode);
 	      // 2단계 인증 화면(구글 /challenge/totp 등)이면 이름이 무엇이든 보이는 빈 글·숫자 칸 하나를 코드 칸으로 본다
 	      // (구글 "Google OTP 앱에서 인증 코드 받기" 칸이 위 이름에 안 걸려 안 채워졌다, 사용자 2026-11-23)
-	      if (!code && /challenge\/totp|totp|mfa|otp|2sv|two.?step|verif/i.test(location.pathname + location.search)) {
+	      if (!code && /challenge\/totp|totp|mfa|otp|2sv|2fa|two.?step|two.?factor|verif/i.test(location.pathname + location.search)) {
 	        const cands = all('input[type=tel],input[type=text],input[type=number],input:not([type])').filter(okCode);
 	        if (cands.length === 1) code = cands[0];
 	        else if (!loggedNoCode) { loggedNoCode = true; log('2단계 화면인데 코드 칸을 못 정함: ' + all('input').filter(shown).map(e => (e.type || '') + '#' + (e.id || '') + '[' + (e.name || '') + ']').join(' ')); }

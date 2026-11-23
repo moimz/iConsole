@@ -334,13 +334,13 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		// 값을 넘기는 조건: https 프레임 주소가 그 계정 종류의 로그인 도메인이고,
 		// 안쪽 프레임이면(애플 로그인은 iframe 안) 바깥 페이지 주소도 로그인 도메인
 		let f = message.frameInfo
-		let isLogin = { (h: String) in a.kind.loginHosts.contains { h == $0 || h.hasSuffix("." + $0) } }
+		let isLogin = { (h: String) in a.loginHosts.contains { h == $0 || h.hasSuffix("." + $0) } }
 		let top = message.webView?.url
 		let trusted = f.securityOrigin.protocol == "https" && isLogin(f.securityOrigin.host.lowercased())
 			&& (f.isMainFrame || (top?.scheme == "https" && isLogin(top?.host()?.lowercased() ?? "")))
 		switch op {
 		case "hello":
-			replyHandler(trusted ? ["autoSubmit": model?.autoSubmit ?? false, "kind": a.kind.rawValue] : nil, nil)
+			replyHandler(trusted ? ["autoSubmit": model?.autoSubmit ?? false, "kind": a.kind.rawValue, "fields": a.fields] : nil, nil)
 		case "get":
 			guard trusted, let field = body["field"] as? String else { replyHandler(nil, nil); return }
 			switch field {

@@ -230,7 +230,7 @@ private struct MCPSettingsPage: View {
 							Toggle(isOn: Binding(get: { mcp.allowed.contains(a.id) },
 							                     set: { if $0 { mcp.allowed.insert(a.id) } else { mcp.allowed.remove(a.id) } })) {
 								HStack(spacing: 8) {
-									ServiceIcon(kind: a.kind, size: 18)
+									ServiceIcon(kind: a.kind, home: a.home, size: 18)
 									Text(a.name)
 									if !g.group.isEmpty { Text(g.group).foregroundStyle(.secondary) }
 								}

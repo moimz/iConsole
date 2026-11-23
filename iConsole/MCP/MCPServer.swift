@@ -422,7 +422,8 @@ final class MCPServer {
 	/// 로그인 페이지는 읽기·입력 모두 막는다 (암호·OTP 가 AI 쪽으로 가지 않게)
 	private func refuseLogin(_ t: WebTab, _ acc: Account) throws {
 		let host = (t.url ?? t.pending)?.host()?.lowercased() ?? ""
-		let login = Account.Kind.allCases.flatMap(\.loginHosts).contains { host == $0 || host.hasSuffix("." + $0) }
+		let hosts = Account.Kind.allCases.flatMap(\.loginHosts) + (model?.store.accounts.flatMap(\.loginHosts) ?? [])
+		let login = hosts.contains { host == $0 || host.hasSuffix("." + $0) }
 		if login { throw Failure("\(acc.name) 탭이 로그인 페이지라 MCP 로 읽거나 다룰 수 없습니다. iConsole 에서 직접 로그인한 뒤 다시 하세요") }
 	}
 
