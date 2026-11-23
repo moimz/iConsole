@@ -46,6 +46,16 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
 		extensionContext.completeRequest(withSelectedCredential: c, completionHandler: nil)
 	}
 
+	// MARK: 패스키 · 인증 코드 요청은 내주지 않는다 (Info.plist 에는 받는다고 선언만)
+
+	override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier], requestParameters: ASPasskeyCredentialRequestParameters) {
+		prepareCredentialList(for: serviceIdentifiers)
+	}
+
+	override func prepareOneTimeCodeCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
+		cancel(.userCanceled)
+	}
+
 	// MARK: 작은 도움
 
 	private func credential(for id: String?) -> ASPasswordCredential? {
