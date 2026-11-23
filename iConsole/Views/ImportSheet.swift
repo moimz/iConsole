@@ -15,14 +15,15 @@ struct ImportSheet: View {
 					HStack(spacing: 10) {
 						ServiceIcon(kind: PasswordImport.kind(for: c.host), home: c.urls.first, size: 26)
 						VStack(alignment: .leading, spacing: 2) {
-							Text(c.title.isEmpty ? (c.host ?? "이름 없음") : c.title).lineLimit(1)
-							Text([c.username, c.host].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
-								.font(.caption).foregroundStyle(.secondary).lineLimit(1)
+							// 이름 뒤에 들어 있는 것(암호 · OTP · 패스키) 알약을 붙여 두 줄로 (세 줄은 이상했다, 사용자 2026-11-23)
 							HStack(spacing: 6) {
+								Text(c.title.isEmpty ? (c.host ?? "이름 없음") : c.title).lineLimit(1)
 								if c.password != nil { Badge("암호") }
 								if c.otp != nil { Badge("OTP") }
 								if !c.passkeys.isEmpty { Badge("패스키 \(c.passkeys.count)") }
 							}
+							Text([c.username, c.host].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+								.font(.caption).foregroundStyle(.secondary).lineLimit(1)
 						}
 						Spacer()
 						Picker("", selection: $c.target) {
