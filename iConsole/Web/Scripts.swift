@@ -49,6 +49,7 @@ enum Scripts {
 	    return true;
 	  };
 	  let busy = false;
+	  let loggedNoCode = false;
 	  const tick = async () => {
 	    if (busy) return; busy = true;
 	    try {
@@ -74,8 +75,15 @@ enum Scripts {
 	      if (user) { await fill(user, 'username', '아이디'); return; }
 	      const pass = all('input[type=password]').find(e => shown(e) && !done.has(e) && !e.value && !/captcha/i.test(e.id + e.name));
 	      if (pass) { await fill(pass, 'password', '암호'); return; }
-	      const code = all('input[autocomplete=one-time-code],input[id*=mfa i],input[name*=mfa i],input[id*=otp i],input[name*=otp i],input[name=totpPin]')
-	        .find(e => shown(e) && !done.has(e) && !e.value && e.type !== 'password' && e.type !== 'hidden' && !/captcha/i.test(e.id + e.name));
+	      const okCode = e => shown(e) && !done.has(e) && !e.value && e.type !== 'password' && e.type !== 'hidden' && e.type !== 'checkbox' && e.type !== 'radio' && !/captcha/i.test(e.id + e.name);
+	      let code = all('input[autocomplete=one-time-code],input[id*=mfa i],input[name*=mfa i],input[id*=otp i],input[name*=otp i],input[name=totpPin],input[id=totpPin]').find(okCode);
+	      // 2단계 인증 화면(구글 /challenge/totp 등)이면 이름이 무엇이든 보이는 빈 글·숫자 칸 하나를 코드 칸으로 본다
+	      // (구글 "Google OTP 앱에서 인증 코드 받기" 칸이 위 이름에 안 걸려 안 채워졌다, 사용자 2026-11-23)
+	      if (!code && /challenge\/totp|totp|mfa|otp|2sv|two.?step|verif/i.test(location.pathname + location.search)) {
+	        const cands = all('input[type=tel],input[type=text],input[type=number],input:not([type])').filter(okCode);
+	        if (cands.length === 1) code = cands[0];
+	        else if (!loggedNoCode) { loggedNoCode = true; log('2단계 화면인데 코드 칸을 못 정함: ' + all('input').filter(shown).map(e => (e.type || '') + '#' + (e.id || '') + '[' + (e.name || '') + ']').join(' ')); }
+	      }
 	      if (code) { await fill(code, 'otp', 'OTP'); return; }
 	    } finally { busy = false; }
 	  };
