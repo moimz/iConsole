@@ -250,32 +250,36 @@ struct AccountRow: View {
 	}
 }
 
-/// 서비스 아이콘: 흰 둥근 정사각형 안에 그 서비스의 실제 사이트 아이콘 (예전엔 색 바탕에 글자 "G" 를 그려 구글 같지 않았다, 사용자 2026-11-23).
-/// 애플은 시스템 기호, 사용자 정의는 시작 주소 페이지의 아이콘. 아이콘을 아직 못 받았으면 서비스 색 바탕에 기호
+/// 서비스 아이콘: 서비스 대표색 둥근 정사각형 + 흰 단색 로고 (Simple Icons, CC0 — 사용자 2026-11-23).
+/// 예전엔 파란 바탕에 글자 "G" 라 구글 같지 않았다. 아마존은 Simple Icons 에서 빠져 있어(아마존 요청) 대표색에 글자 "aws".
+/// 사용자 정의는 메인 페이지의 사이트 아이콘(못 받았으면 지구본)
 struct ServiceIcon: View {
 	let kind: Account.Kind
-	/// 사용자 정의 계정의 시작 주소
+	/// 사용자 정의 계정의 메인 페이지
 	var home: URL? = nil
 	var size: CGFloat = 30
 
 	private var color: Color {
 		switch kind {
-		case .aws: Color(red: 0.95, green: 0.55, blue: 0.10)
-		case .google: Color(red: 0.26, green: 0.52, blue: 0.96)
-		case .apple: Color(white: 0.35)
-		case .cloudflare: Color(red: 0.96, green: 0.51, blue: 0.13)
+		case .aws: Color(red: 1.0, green: 0.6, blue: 0.0)                // #FF9900
+		case .google: Color(red: 0.259, green: 0.522, blue: 0.957)       // #4285F4
+		case .apple: Color.black                                         // #000000
+		case .cloudflare: Color(red: 0.953, green: 0.502, blue: 0.125)   // #F38020
 		case .custom: Color(white: 0.45)
 		}
 	}
 
-	private var favicon: NSImage? {
-		if let i = kind.iconURL { return Favicons.shared.image(icon: i) }
-		if kind == .custom { return Favicons.shared.image(for: home) }
-		return nil
+	private var logo: String? {
+		switch kind {
+		case .google: "ServiceGoogle"
+		case .apple: "ServiceApple"
+		case .cloudflare: "ServiceCloudflare"
+		case .aws, .custom: nil
+		}
 	}
 
 	var body: some View {
-		if let img = favicon {
+		if kind == .custom, let img = Favicons.shared.image(for: home) {
 			RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
 				.fill(Color.white)
 				.frame(width: size, height: size)
@@ -284,11 +288,15 @@ struct ServiceIcon: View {
 			RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
 				.fill(color)
 				.frame(width: size, height: size)
+				// 검정(애플) 타일이 어두운 사이드바에 묻히지 않게 옅은 테두리
+				.overlay { RoundedRectangle(cornerRadius: size * 0.24, style: .continuous).strokeBorder(Color.white.opacity(kind == .apple ? 0.18 : 0), lineWidth: 1) }
 				.overlay {
-					switch kind {
-					case .apple: Image(systemName: "apple.logo").font(.system(size: size * 0.5, weight: .semibold))
-					case .custom: Image(systemName: "globe").font(.system(size: size * 0.5, weight: .semibold))
-					default: Text(String(kind.title.prefix(1))).font(.system(size: size * 0.5, weight: .bold, design: .rounded))
+					if let logo {
+						Image(logo).renderingMode(.template).resizable().scaledToFit().frame(width: size * 0.56, height: size * 0.56)
+					} else if kind == .aws {
+						Text("aws").font(.system(size: size * 0.36, weight: .heavy, design: .rounded)).offset(y: -size * 0.02)
+					} else {
+						Image(systemName: "globe").font(.system(size: size * 0.5, weight: .semibold))
 					}
 				}
 				.foregroundStyle(.white)

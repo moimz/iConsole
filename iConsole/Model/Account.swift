@@ -33,16 +33,6 @@ struct Account: Codable, Identifiable, Hashable {
 			case .custom: []
 			}
 		}
-
-		/// 서비스 아이콘으로 쓰는 그 서비스의 사이트 아이콘 (사이드바 · 계정 폼). 사용자 정의는 시작 주소 페이지의 아이콘
-		var iconURL: String? {
-			switch self {
-			case .aws: "https://a0.awsstatic.com/libra-css/images/site/fav/favicon.ico"
-			case .google: "https://www.google.com/favicon.ico"
-			case .cloudflare: "https://www.cloudflare.com/favicon.ico"
-			case .apple, .custom: nil
-			}
-		}
 	}
 
 	var id = UUID()
