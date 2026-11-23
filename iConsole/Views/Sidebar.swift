@@ -263,7 +263,7 @@ struct ServiceIcon: View {
 		switch kind {
 		case .aws: Color(red: 1.0, green: 0.6, blue: 0.0)                // #FF9900
 		case .google: Color(red: 0.259, green: 0.522, blue: 0.957)       // #4285F4
-		case .apple: Color.black                                         // #000000
+		case .apple: Color(white: 0.35)                                  // 대표색 검정보다 회색이 낫다 (사용자 2026-11-23)
 		case .cloudflare: Color(red: 0.953, green: 0.502, blue: 0.125)   // #F38020
 		case .custom: Color(white: 0.45)
 		}
@@ -288,8 +288,6 @@ struct ServiceIcon: View {
 			RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
 				.fill(color)
 				.frame(width: size, height: size)
-				// 검정(애플) 타일이 어두운 사이드바에 묻히지 않게 옅은 테두리
-				.overlay { RoundedRectangle(cornerRadius: size * 0.24, style: .continuous).strokeBorder(Color.white.opacity(kind == .apple ? 0.18 : 0), lineWidth: 1) }
 				.overlay {
 					if let logo {
 						Image(logo).renderingMode(.template).resizable().scaledToFit().frame(width: size * 0.56, height: size * 0.56)
