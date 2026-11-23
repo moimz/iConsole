@@ -1,10 +1,12 @@
 import SwiftUI
+import AuthenticationServices
 
 /// iConsole: AWS·구글·애플 콘솔 계정마다 따로 된 웹 저장소(로그인)와 탭을 갖는 브라우저.
 /// 로그인 페이지에서는 저장한 아이디·암호·OTP 를 채운다
 @main
 struct iConsoleApp: App {
 	@State private var model = AppModel()
+	@NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
 	init() {
 		// 자동 업데이트는 앱이 뜰 때 한 번 만들어 둔다 (하루 한 번 확인)
@@ -124,6 +126,9 @@ struct SettingsView: View {
 		TabView(selection: $tab) {
 			Tab("일반", systemImage: "gearshape", value: "general") {
 				GeneralSettingsPage().frame(width: Self.width, height: 640)
+			}
+			Tab("암호", systemImage: "key", value: "passwords") {
+				PasswordsSettingsPage().frame(width: Self.width, height: 470)
 			}
 			Tab("MCP", systemImage: "point.3.connected.trianglepath.dotted", value: "mcp") {
 				MCPSettingsPage().frame(width: Self.width, height: 680)
@@ -318,5 +323,51 @@ private struct UpdateSection: View {
 		} footer: {
 			Text("하루에 한 번 새 버전이 있는지 확인하고, 있으면 설치할지 묻습니다.").foregroundStyle(.tertiary)
 		}
+	}
+}
+
+/// 암호 앱 "선택한 항목을 앱으로 내보내기" 로 열릴 때 (자격 증명 교환)
+final class AppDelegate: NSObject, NSApplicationDelegate {
+	func application(_ application: NSApplication, continue userActivity: NSUserActivity,
+	                 restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void) -> Bool {
+		guard userActivity.activityType == ASCredentialExchangeActivity else { return false }
+		let raw = userActivity.userInfo?[ASCredentialImportToken]
+		guard let token = (raw as? UUID) ?? (raw as? String).flatMap(UUID.init) ?? (raw as? NSUUID).map({ $0 as UUID }) else { return false }
+		Task { @MainActor in await PasswordImport.shared.receive(token: token) }
+		return true
+	}
+}
+
+/// 설정 > 암호: 암호 앱에서 가져오기 방법, Safari · Chrome 자동 완성 켜고 끄기 (부작용 시험)
+private struct PasswordsSettingsPage: View {
+	@Bindable private var autofill = Autofill.shared
+
+	var body: some View {
+		Form {
+			Section {
+				Text("암호 앱 → 항목 고르기 → 파일 > 선택한 항목을 앱으로 내보내기… → iConsole 을 고르면, iConsole 이 열리며 어느 계정에 넣을지 묻습니다. 아이디 · 암호 · OTP 를 넣고, 패스키는 받아 둡니다.")
+					.fixedSize(horizontal: false, vertical: true)
+				LabeledContent("iConsole 자동 완성 확장") {
+					HStack(spacing: 8) {
+						Text(autofill.systemEnabled ? "켜짐" : "꺼짐").foregroundStyle(autofill.systemEnabled ? .green : .secondary)
+						Button("시스템 설정 열기") { autofill.openSettings() }
+					}
+				}
+			} header: {
+				Text("암호 앱에서 가져오기")
+			} footer: {
+				Text("목록에 iConsole 이 안 보이면 시스템 설정 > 일반 > 자동 완성 및 암호 에서 iConsole 을 켜 보세요.").foregroundStyle(.tertiary)
+			}
+			Section {
+				Toggle("Safari · Chrome 에서 iConsole 계정 암호 자동 완성", isOn: $autofill.enabled)
+			} header: {
+				Text("브라우저 자동 완성")
+			} footer: {
+				Text("끄면 iConsole 확장이 켜져 있어도 아무것도 채우지 않습니다 (애플 암호는 그대로). 켜면 iConsole 계정의 로그인 도메인에서 iConsole 암호를 추천합니다. 시스템 설정에서 iConsole 확장도 켜야 합니다.")
+					.foregroundStyle(.tertiary)
+			}
+		}
+		.formStyle(.grouped)
+		.task { await autofill.refreshState() }
 	}
 }

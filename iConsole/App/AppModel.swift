@@ -49,6 +49,9 @@ final class AppModel {
 		Keychain.probe()
 		MCPServer.shared.model = self
 		PageTranslator.shared.model = self
+		Autofill.shared.model = self
+		PasswordImport.shared.model = self
+		Task { await Autofill.shared.refreshState() }
 		MCPServer.shared.startIfEnabled()
 		NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
 			MainActor.assumeIsolated { self?.flush() }
@@ -112,6 +115,7 @@ final class AppModel {
 
 	/// 계정 삭제: 탭·웹 저장소·키체인 항목까지
 	func delete(_ a: Account) {
+		defer { Task { await Autofill.shared.sync() } }
 		if let s = sessions.removeValue(forKey: a.id) { s.tearDown() }
 		if currentID == a.id { select(nil) }
 		store.delete(a)

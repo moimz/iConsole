@@ -32,10 +32,14 @@ struct ContentView: View {
 			AccountForm(account: nil) { a, p, o in
 				model.store.save(a, password: p, otp: o)
 				model.select(a.id)
+				Task { await Autofill.shared.sync() }
 			}
 		}
 		.sheet(item: $editing) { a in
-			AccountForm(account: a) { a, p, o in model.store.save(a, password: p, otp: o) }
+			AccountForm(account: a) { a, p, o in
+				model.store.save(a, password: p, otp: o)
+				Task { await Autofill.shared.sync() }
+			}
 		}
 		.sheet(isPresented: $addingGroup) {
 			NameSheet(title: "그룹 추가", name: $groupName, taken: { model.store.groups.contains($0) }) {
@@ -44,6 +48,10 @@ struct ContentView: View {
 		}
 		.sheet(item: Binding(get: { model.favoriteDraft }, set: { model.favoriteDraft = $0 })) { d in
 			FavoriteSheet(draft: d)
+		}
+		// 암호 앱에서 받은 항목
+		.sheet(isPresented: Binding(get: { !PasswordImport.shared.items.isEmpty }, set: { if !$0 { PasswordImport.shared.items = [] } })) {
+			ImportSheet()
 		}
 		.onReceive(NotificationCenter.default.publisher(for: .addAccount)) { _ in adding = true }
 	}

@@ -8,16 +8,47 @@
 
 /* Begin PBXBuildFile section */
 		C10000000000000000000020 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C10000000000000000000022 /* Sparkle */; };
+		C10000000000000000000039 /* iConsoleCredentials.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C10000000000000000000030 /* iConsoleCredentials.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C1000000000000000000003B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C1000000000000000000000A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C10000000000000000000032;
+			remoteInfo = iConsoleCredentials;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C1000000000000000000003A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C10000000000000000000039 /* iConsoleCredentials.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		C10000000000000000000001 /* iConsole.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iConsole.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000030 /* iConsoleCredentials.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = iConsoleCredentials.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C10000000000000000000002 /* iConsole */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = iConsole;
+			sourceTree = "<group>";
+		};
+		C10000000000000000000031 /* iConsoleCredentials */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = iConsoleCredentials;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -31,6 +62,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C10000000000000000000034 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -38,6 +76,7 @@
 			isa = PBXGroup;
 			children = (
 				C10000000000000000000002 /* iConsole */,
+				C10000000000000000000031 /* iConsoleCredentials */,
 				C10000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -46,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				C10000000000000000000001 /* iConsole.app */,
+				C10000000000000000000030 /* iConsoleCredentials.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -61,10 +101,12 @@
 				C10000000000000000000003 /* Frameworks */,
 				C10000000000000000000009 /* Resources */,
 				C10000000000000000000023 /* Thin Sparkle */,
+				C1000000000000000000003A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				C1000000000000000000003C /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C10000000000000000000002 /* iConsole */,
@@ -77,6 +119,26 @@
 			productReference = C10000000000000000000001 /* iConsole.app */;
 			productType = "com.apple.product-type.application";
 		};
+		C10000000000000000000032 /* iConsoleCredentials */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C10000000000000000000036 /* Build configuration list for PBXNativeTarget "iConsoleCredentials" */;
+			buildPhases = (
+				C10000000000000000000033 /* Sources */,
+				C10000000000000000000034 /* Frameworks */,
+				C10000000000000000000035 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C10000000000000000000031 /* iConsoleCredentials */,
+			);
+			name = iConsoleCredentials;
+			productName = iConsoleCredentials;
+			productReference = C10000000000000000000030 /* iConsoleCredentials.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -88,6 +150,9 @@
 				LastUpgradeCheck = 2720;
 				TargetAttributes = {
 					C10000000000000000000006 = {
+						CreatedOnToolsVersion = 27.2;
+					};
+					C10000000000000000000032 = {
 						CreatedOnToolsVersion = 27.2;
 					};
 				};
@@ -111,12 +176,20 @@
 			projectRoot = "";
 			targets = (
 				C10000000000000000000006 /* iConsole */,
+				C10000000000000000000032 /* iConsoleCredentials */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		C10000000000000000000009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10000000000000000000035 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -151,7 +224,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C10000000000000000000033 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C1000000000000000000003C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C10000000000000000000032 /* iConsoleCredentials */;
+			targetProxy = C1000000000000000000003B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C1000000000000000000000C /* Debug */ = {
@@ -244,6 +332,56 @@
 			};
 			name = Release;
 		};
+		C10000000000000000000037 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_ENTITLEMENTS = iConsoleCredentials.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = XSDBV8D2XL;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "iConsoleCredentials-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = iConsole;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.moimz.iConsole.Credentials;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C10000000000000000000038 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_ENTITLEMENTS = iConsoleCredentials.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = XSDBV8D2XL;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "iConsoleCredentials-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = iConsole;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.moimz.iConsole.Credentials;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -261,6 +399,15 @@
 			buildConfigurations = (
 				C1000000000000000000000C /* Debug */,
 				C1000000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C10000000000000000000036 /* Build configuration list for PBXNativeTarget "iConsoleCredentials" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10000000000000000000037 /* Debug */,
+				C10000000000000000000038 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

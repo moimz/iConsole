@@ -91,4 +91,21 @@ enum Keychain {
 			mode = .localOnly
 		}
 	}
+
+	/// 이 맥에만 두는 항목 (동기화 안 함, 같은 접근 그룹이라 자동 완성 확장도 읽는다). nil 이면 지운다
+	static func setLocal(_ key: String, _ data: Data?) {
+		let q: [String: Any] = [
+			kSecClass as String: kSecClassGenericPassword,
+			kSecAttrService as String: service,
+			kSecAttrAccount as String: key,
+			kSecUseDataProtectionKeychain as String: true,
+			kSecAttrSynchronizable as String: false,
+		]
+		SecItemDelete(q as CFDictionary)
+		guard let data else { return }
+		var add = q
+		add[kSecValueData as String] = data
+		add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+		SecItemAdd(add as CFDictionary, nil)
+	}
 }
