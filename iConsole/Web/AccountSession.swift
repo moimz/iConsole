@@ -356,6 +356,22 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 
 	// MARK: 채우기 (iconsole 세계)
 
+	/// 칸 옆 다시 채우기 버튼 아이콘: SF Symbol lock.rotation 을 흰색 PNG(2배) data 주소로 (웹에선 SF Symbol 을 못 쓴다, 사용자 2026-11-26)
+	private static let retryIcon: String = {
+		let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold).applying(.init(paletteColors: [.white]))
+		guard let sym = NSImage(systemSymbolName: "lock.rotation", accessibilityDescription: nil)?.withSymbolConfiguration(cfg) else { return "" }
+		let size = sym.size
+		guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2), bitsPerSample: 8,
+		                                 samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return "" }
+		rep.size = size
+		NSGraphicsContext.saveGraphicsState()
+		NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+		sym.draw(in: NSRect(origin: .zero, size: size))
+		NSGraphicsContext.restoreGraphicsState()
+		guard let png = rep.representation(using: .png, properties: [:]) else { return "" }
+		return "data:image/png;base64," + png.base64EncodedString() + "#\(Int(size.width))x\(Int(size.height))"
+	}()
+
 	func userContentController(_ ucc: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping @MainActor @Sendable (Any?, String?) -> Void) {
 		guard let a = account, let body = message.body as? [String: Any], let op = body["op"] as? String else {
 			replyHandler(nil, nil); return
@@ -373,7 +389,7 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 			if !trusted, f.isMainFrame, let u = top, (u.host() ?? "").range(of: "signin|login|auth|account", options: .regularExpression) != nil {
 				log("채우지 않음 — 로그인 도메인(\(a.loginHosts.joined(separator: ", ")))이 아님: \(u.host() ?? "")\(u.path())")
 			}
-			replyHandler(trusted ? ["autoSubmit": model?.autoSubmit ?? false, "kind": a.kind.rawValue, "fields": a.fields] : nil, nil)
+			replyHandler(trusted ? ["autoSubmit": model?.autoSubmit ?? false, "kind": a.kind.rawValue, "fields": a.fields, "icon": Self.retryIcon] : nil, nil)
 		case "get":
 			guard trusted, let field = body["field"] as? String else { replyHandler(nil, nil); return }
 			switch field {

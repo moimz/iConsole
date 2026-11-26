@@ -90,7 +90,10 @@ enum Scripts {
 	    const name = '--ic-in-' + (++anchorSeq);
 	    e.style.setProperty('anchor-name', name);
 	    const k = makePop(name, 'left:calc(anchor(right) - 30px);top:anchor(center);translate:0 -50%;');
-	    k.root.innerHTML = '<style>button{all:unset;box-sizing:border-box;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:#fff;background:#0a84ff;box-shadow:0 1px 3px rgba(0,0,0,.3)}button:hover{background:#0070e0}</style><button title="iConsole: ' + label[field] + ' 채우기">' + KEY_SVG + '</button>';
+	    // 아이콘: 앱이 그려 준 SF Symbol lock.rotation (주소 끝 #가로x세로 는 점 크기), 없으면 열쇠 SVG
+	    const m = /#(\d+)x(\d+)$/.exec(cfg.icon || '');
+	    const icon = m ? '<img src="' + cfg.icon + '" width="' + m[1] + '" height="' + m[2] + '" alt="">' : KEY_SVG;
+	    k.root.innerHTML = '<style>button{all:unset;box-sizing:border-box;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:#fff;background:#0a84ff;box-shadow:0 1px 3px rgba(0,0,0,.3)}button:hover{background:#0070e0}img{display:block;pointer-events:none}</style><button title="iConsole: ' + label[field] + ' 다시 채우기">' + icon + '</button>';
 	    keys.set(e, k);
 	    const b = k.root.querySelector('button');
 	    b.addEventListener('mousedown', ev => ev.preventDefault());   // 칸의 초점을 뺏지 않게
