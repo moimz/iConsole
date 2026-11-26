@@ -23,9 +23,12 @@ enum Scripts {
 	    ...(e.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent || '')].join(' ');
 	  const codeHint = /mfa|otp|one.?time|totp|2fa|verification.?code|security.?code|auth\w*.?code|enter.?code|인증.?코드|보안.?코드|확인.?코드/i;
 	  const done = new WeakSet();
+	  // React 입력칸(새 AWS 로그인의 awsui_input 등)은 e.value = v 를 모른 채 다시 빈 값으로 그린다 →
+	  // 원래 HTMLInputElement 의 value 설정자로 넣어야 input 이벤트에서 바뀐 값으로 본다 (사용자 2026-11-26)
+	  const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
 	  const setVal = (e, v) => {
 	    e.focus();
-	    e.value = v;
+	    nativeSet.call(e, v);
 	    e.dispatchEvent(new Event('input', {bubbles:true}));
 	    e.dispatchEvent(new Event('change', {bubbles:true}));
 	  };
@@ -50,8 +53,67 @@ enum Scripts {
 	    const v = await ask({op:'get', field});
 	    if (!v) return false;
 	    setVal(e, v);
+	    // 사이트가 넣은 값을 지우는지 기록 (React 칸 등, 사용자 2026-11-26 AWS MFA 칸)
+	    setTimeout(() => { if (e.value !== v) log(what + ' 넣었는데 칸에 남지 않음 (사이트가 지움) — 칸 옆 열쇠 버튼으로 다시 넣기'); }, 400);
 	    submit(e, what);
 	    return true;
+	  };
+
+	  // 채울 칸 오른쪽 안에 열쇠 버튼 (CSS anchor 로 칸에 붙인 popover).
+	  // 누르면 다시 채우고, 값이 칸에 남지 않으면 클립보드에 넣고 버튼 오른쪽에 알림 (입력 방해 안 하게 popover, 사용자 2026-11-26)
+	  const keys = new Map();   // input → {host, toast}
+	  let anchorSeq = 0;
+	  const KEY_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3"/><path d="m16 7 3 3"/><path d="m18 5 2 2"/></svg>';
+	  const label = {username:'아이디', password:'암호', otp:'인증 코드'};
+	  const makePop = (anchor, css) => {
+	    const host = document.createElement('div');
+	    host.setAttribute('popover', 'manual');
+	    host.style.cssText = 'position:fixed;margin:0;padding:0;border:0;background:transparent;overflow:visible;inset:auto;position-anchor:' + anchor + ';' + css;
+	    const root = host.attachShadow({mode:'closed'});
+	    (document.body || document.documentElement).appendChild(host);
+	    return {host, root};
+	  };
+	  const toastFor = (k, text) => {
+	    if (!k.toast) {
+	      const name = '--ic-key-' + (++anchorSeq);
+	      k.host.style.anchorName = name;
+	      k.toast = makePop(name, 'left:calc(anchor(right) + 6px);top:anchor(center);translate:0 -50%;pointer-events:none;');
+	      k.toast.root.innerHTML = '<style>div{font:12px/1.3 -apple-system,sans-serif;color:#fff;background:rgba(30,30,30,.92);padding:5px 9px;border-radius:7px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25)}</style><div></div>';
+	    }
+	    k.toast.root.querySelector('div').textContent = text;
+	    try { k.toast.host.showPopover(); } catch (x) {}
+	    clearTimeout(k.toastTimer);
+	    k.toastTimer = setTimeout(() => { try { k.toast.host.hidePopover(); } catch (x) {} }, 2500);
+	  };
+	  const attach = (e, field) => {
+	    if (!e || keys.has(e) || !CSS.supports('anchor-name: --a')) return;
+	    const name = '--ic-in-' + (++anchorSeq);
+	    e.style.setProperty('anchor-name', name);
+	    const k = makePop(name, 'left:calc(anchor(right) - 30px);top:anchor(center);translate:0 -50%;');
+	    k.root.innerHTML = '<style>button{all:unset;box-sizing:border-box;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:#fff;background:#0a84ff;box-shadow:0 1px 3px rgba(0,0,0,.3)}button:hover{background:#0070e0}</style><button title="iConsole: ' + label[field] + ' 채우기">' + KEY_SVG + '</button>';
+	    keys.set(e, k);
+	    const b = k.root.querySelector('button');
+	    b.addEventListener('mousedown', ev => ev.preventDefault());   // 칸의 초점을 뺏지 않게
+	    b.addEventListener('click', async ev => {
+	      if (!ev.isTrusted) return;    // 페이지 스크립트가 누른 건 무시 (클립보드에 암호가 가지 않게)
+	      const v = await ask({op:'get', field});
+	      if (!v) { toastFor(k, label[field] + ' 값이 없습니다'); return; }
+	      setVal(e, v);
+	      await new Promise(r => setTimeout(r, 300));
+	      if (e.value === v) { toastFor(k, label[field] + ' 채움'); return; }
+	      const copied = await ask({op:'copy', field});
+	      log(label[field] + ' 칸에 값이 남지 않아 클립보드에 복사');
+	      toastFor(k, copied ? '클립보드에 복사함 — ⌘V 로 붙여 넣기' : '복사하지 못함');
+	    });
+	    try { k.host.showPopover(); } catch (x) {}
+	  };
+	  // 칸이 사라지거나 안 보이면 버튼도 치운다
+	  const sweep = () => {
+	    for (const [e, k] of keys) {
+	      const vis = e.isConnected && shown(e);
+	      try { vis ? (k.host.matches(':popover-open') || k.host.showPopover()) : k.host.hidePopover(); } catch (x) {}
+	      if (!e.isConnected) { k.host.remove(); k.toast?.host.remove(); keys.delete(e); }
+	    }
 	  };
 	  // 사용자 정의 계정: 칸 이름(name · id) 또는 CSS 선택자(#·.·[ 로 시작)
 	  const F = cfg.fields || {};
@@ -80,14 +142,23 @@ enum Scripts {
 	          log('루트 사용자 고름 (' + (root.checked ? '됨' : '안 됨') + ')');
 	        }
 	      }
+	      sweep();
 	      const ok = e => e && shown(e) && !done.has(e) && !e.value;
-	      const user = (F.user ? [bySpec(F.user)] : all('input[type=email],input#resolving_input,input[name=email],input[autocomplete~=username],input[name=identifier],input#account_name_text_field,input[name=username],input[name=login],input[id=username],input[id=login]'))
-	        .find(ok);
-	      if (user) { await fill(user, 'username', '아이디'); return; }
-	      const pass = (F.pass ? [bySpec(F.pass)] : all('input[type=password]')).find(e => ok(e) && !/captcha/i.test(e.id + e.name));
-	      if (pass) { await fill(pass, 'password', '암호'); return; }
-	      const okCode = e => shown(e) && !done.has(e) && !e.value && e.type !== 'password' && e.type !== 'hidden' && e.type !== 'checkbox' && e.type !== 'radio' && !/captcha/i.test(e.id + e.name);
-	      let code = (F.otp ? [bySpec(F.otp)].filter(Boolean) : all('input[autocomplete=one-time-code],input[id*=mfa i],input[name*=mfa i],input[id*=otp i],input[name*=otp i],input[name=totpPin],input[id=totpPin],input[name*=twofactor i],input[name*=2fa i]')).find(okCode);
+	      const users = (F.user ? [bySpec(F.user)] : all('input[type=email],input#resolving_input,input[name=email],input[autocomplete~=username],input[name=identifier],input#account_name_text_field,input[name=username],input[name=login],input[id=username],input[id=login]')).filter(e => e && shown(e));
+	      const passes = (F.pass ? [bySpec(F.pass)] : all('input[type=password]')).filter(e => e && shown(e) && !/captcha/i.test(e.id + e.name));
+	      const isCode = e => e.type !== 'password' && e.type !== 'hidden' && e.type !== 'checkbox' && e.type !== 'radio' && !/captcha/i.test(e.id + e.name);
+	      const codes = (F.otp ? [bySpec(F.otp)] : all('input[autocomplete=one-time-code],input[id*=mfa i],input[name*=mfa i],input[id*=otp i],input[name*=otp i],input[name=totpPin],input[id=totpPin],input[name*=twofactor i],input[name*="2fa" i]')).filter(e => e && shown(e) && isCode(e));
+	      // 찾은 칸마다 열쇠 버튼 (값이 이미 있어도)
+	      users.forEach(e => attach(e, 'username'));
+	      passes.forEach(e => attach(e, 'password'));
+	      codes.forEach(e => attach(e, 'otp'));
+	      // 채우지 못한 칸(두 번 채움 · 값 없음) 때문에 다음 칸으로 못 넘어가는 일이 없게, 실제로 채운 때만 멈춘다
+	      const user = users.find(ok);
+	      if (user && await fill(user, 'username', '아이디')) return;
+	      const pass = passes.find(ok);
+	      if (pass && await fill(pass, 'password', '암호')) return;
+	      const okCode = e => shown(e) && !done.has(e) && !e.value && isCode(e);
+	      let code = codes.find(okCode);
 	      const cands = F.otp ? [] : all('input[type=tel],input[type=text],input[type=number],input:not([type])').filter(okCode);
 	      // 칸 이름은 아무것이어도 label · placeholder 가 "MFA code" · "enter code" · "인증 코드" 같으면 코드 칸
 	      // (새 AWS 로그인 화면 "Additional verification required" 의 MFA 칸이 id · name 에 mfa 가 없어 안 채워졌다, 사용자 2026-11-26)
@@ -99,7 +170,7 @@ enum Scripts {
 	        if (cands.length === 1) code = cands[0];
 	        else if (!loggedNoCode) { loggedNoCode = true; log('2단계 화면인데 코드 칸을 못 정함: ' + all('input').filter(shown).map(e => (e.type || '') + '#' + (e.id || '') + '[' + (e.name || '') + ']').join(' ')); }
 	      }
-	      if (code) { await fill(code, 'otp', 'OTP'); return; }
+	      if (code) { attach(code, 'otp'); await fill(code, 'otp', 'OTP'); return; }
 	    } finally { busy = false; }
 	  };
 	  log('로그인 페이지 감지: ' + location.hostname + location.pathname);

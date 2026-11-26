@@ -24,6 +24,8 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		super.init()
 		config.websiteDataStore = WKWebsiteDataStore(forIdentifier: account.id)
 		config.preferences.javaScriptCanOpenWindowsAutomatically = true
+		// 오른쪽 클릭 "요소 검사" (웹 속성 검사기). isInspectable 만으로는 Safari 개발자용 메뉴로만 붙는다
+		config.preferences.setValue(true, forKey: "developerExtrasEnabled")
 		let ucc = WKUserContentController()
 		ucc.addUserScript(WKUserScript(source: Scripts.probe, injectionTime: .atDocumentStart, forMainFrameOnly: true))
 		ucc.add(self, name: "ic")
@@ -367,6 +369,10 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 			&& (f.isMainFrame || (top?.scheme == "https" && isLogin(top?.host()?.lowercased() ?? "")))
 		switch op {
 		case "hello":
+			// 로그인 같아 보이는 페이지인데 로그인 도메인이 아니면 기록에 남긴다 (사이트가 로그인 주소를 옮긴 걸 알아채게)
+			if !trusted, f.isMainFrame, let u = top, (u.host() ?? "").range(of: "signin|login|auth|account", options: .regularExpression) != nil {
+				log("채우지 않음 — 로그인 도메인(\(a.loginHosts.joined(separator: ", ")))이 아님: \(u.host() ?? "")\(u.path())")
+			}
 			replyHandler(trusted ? ["autoSubmit": model?.autoSubmit ?? false, "kind": a.kind.rawValue, "fields": a.fields] : nil, nil)
 		case "get":
 			guard trusted, let field = body["field"] as? String else { replyHandler(nil, nil); return }
@@ -385,6 +391,26 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 			default:
 				replyHandler(nil, nil)
 			}
+		case "copy":
+			// 열쇠 버튼으로 넣어도 칸에 남지 않을 때: 값을 클립보드에 (암호 · 코드는 다른 클립보드 앱이 기록하지 않게 표시하고 1분 뒤 지운다)
+			guard trusted, let field = body["field"] as? String else { replyHandler(false, nil); return }
+			let value: String? = switch field {
+			case "username": a.username
+			case "password": Keychain.get(a.passwordKey)
+			case "otp": Keychain.get(a.otpKey).flatMap(TOTP.init)?.code()
+			default: nil
+			}
+			guard let value, !value.isEmpty else { replyHandler(false, nil); return }
+			let pb = NSPasteboard.general
+			pb.clearContents()
+			pb.setString(value, forType: .string)
+			if field != "username" {
+				pb.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
+				let n = pb.changeCount
+				DispatchQueue.main.asyncAfter(deadline: .now() + 60) { if pb.changeCount == n { pb.clearContents() } }
+			}
+			log("\(field == "otp" ? "OTP" : field == "password" ? "암호" : "아이디") 클립보드에 복사")
+			replyHandler(true, nil)
 		case "log":
 			log(body["text"] as? String ?? "")
 			replyHandler(nil, nil)
