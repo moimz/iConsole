@@ -7,6 +7,7 @@ import Translation
 struct BrowserPane: View {
 	@Environment(AppModel.self) private var model
 	let session: AccountSession
+	private var downloads = Downloads.shared
 
 	private var tab: WebTab? { session.active }
 
@@ -100,6 +101,10 @@ struct BrowserPane: View {
 			}
 			ToolbarSpacer(.flexible)
 			// 새 탭은 제목줄 오른쪽 끝 + 하나 (사용자 2026-11-23, 탭 줄의 + 는 뺐다)
+			// 받은 것이 있으면 + 앞에 다운로드 버튼 (Safari 처럼)
+			if !downloads.items.isEmpty {
+				ToolbarItem(placement: .primaryAction) { DownloadsButton() }
+			}
 			ToolbarItem(placement: .primaryAction) {
 				Button("새 탭", systemImage: "plus") { session.newTab() }
 					.help("새 탭 (⌘T)")

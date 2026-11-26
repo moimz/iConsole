@@ -102,6 +102,7 @@
 				C10000000000000000000009 /* Resources */,
 				C10000000000000000000023 /* Thin Sparkle */,
 				C1000000000000000000003A /* Embed Foundation Extensions */,
+				C10000000000000000000040 /* Stamp Commit */,
 			);
 			buildRules = (
 			);
@@ -213,6 +214,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "sh \"$SRCROOT/Scripts/thin-sparkle.sh\"\n";
+		};
+		C10000000000000000000040 /* Stamp Commit */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+			);
+			name = "Stamp Commit";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/Scripts/stamp-commit.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

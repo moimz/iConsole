@@ -234,7 +234,34 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 			newTab(u, activate: action.modifierFlags.contains(.shift), afterActive: true)
 			return .cancel
 		}
+		// <a download> · blob: 저장 같은 것
+		if action.shouldPerformDownload { return .download }
 		return .allow
+	}
+
+	// MARK: 파일 받기 (받는 일은 Downloads)
+
+	/// 보일 수 없는 형식이거나 서버가 "첨부"라고 하면 받는다
+	func webView(_ w: WKWebView, decidePolicyFor response: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+		let disposition = (response.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
+		if !response.canShowMIMEType || disposition.lowercased().hasPrefix("attachment") { return .download }
+		return .allow
+	}
+
+	func webView(_ w: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+		Downloads.shared.start(download, from: w, account: account?.name)
+	}
+
+	func webView(_ w: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+		Downloads.shared.start(download, from: w, account: account?.name)
+		// target="_blank" 링크로 받으면 빈 탭 · 창만 남는다 → 닫는다 (Safari 처럼)
+		guard w.backForwardList.currentItem == nil else { return }
+		if let win = popups.first(where: { $0.contentView === w }) {
+			win.close()
+			popups.removeAll { $0 === win }
+		} else if let t = tab(of: w), tabs.count > 1 {
+			close(t.id)
+		}
 	}
 
 	/// 다 읽으면 사이트 아이콘 주소를 찾아 받는다

@@ -44,7 +44,13 @@ struct AppCommands: Commands {
 	private var mainKey: Bool { NSApp.keyWindow?.identifier?.rawValue.hasPrefix("main") ?? false }
 
 	var body: some Commands {
-		CommandGroup(after: .appInfo) { UpdateMenuButton() }
+		// 기본 정보 창에 버전 줄만 "1.2 (빌드 45 · abc1234)" 로 (Ai.md "앱 안의 버전 표시")
+		CommandGroup(replacing: .appInfo) {
+			Button("iConsole에 관하여") {
+				NSApp.orderFrontStandardAboutPanel(options: [.applicationVersion: appVersion, .version: ""])
+			}
+			UpdateMenuButton()
+		}
 		CommandGroup(replacing: .newItem) {
 			Button("새 탭") { session?.newTab() }
 				.keyboardShortcut("t")
@@ -140,11 +146,7 @@ struct SettingsView: View {
 
 private struct GeneralSettingsPage: View {
 	@Environment(AppModel.self) private var model
-	private var version: String {
-		let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
-		let b = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
-		return "\(v) (\(b))"
-	}
+	private var version: String { appVersion }
 
 	var body: some View {
 		@Bindable var model = model
@@ -174,6 +176,7 @@ private struct GeneralSettingsPage: View {
 			} footer: {
 				Text("주소칸의 번역 버튼(⌥⌘T)은 애플 번역으로 이 맥 안에서 번역합니다. 처음 쓰는 언어는 언어 파일을 내려받을지 묻습니다.").foregroundStyle(.tertiary)
 			}
+			DownloadSection()
 			Section {
 				Toggle("Safari 로 보이기 (User-Agent)", isOn: $model.safariUA)
 			} header: {
@@ -370,4 +373,50 @@ private struct PasswordsSettingsPage: View {
 		.formStyle(.grouped)
 		.task { await autofill.refreshState() }
 	}
+}
+
+/// 설정 > 일반 > 다운로드 (Safari "파일 다운로드 위치" 처럼)
+private struct DownloadSection: View {
+	@Bindable private var downloads = Downloads.shared
+
+	var body: some View {
+		Section {
+			Picker("파일 다운로드 위치", selection: $downloads.askWhere) {
+				Text("매번 묻기").tag(true)
+				Text(downloads.folder.lastPathComponent).tag(false)
+			}
+			if !downloads.askWhere {
+				LabeledContent("폴더") {
+					HStack {
+						Text(downloads.folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+							.foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+						Button("변경…") { choose() }
+					}
+				}
+			}
+		} header: {
+			Text("다운로드")
+		} footer: {
+			Text("매번 묻기를 고르면 받을 때마다 저장할 곳과 이름을 고릅니다.").foregroundStyle(.tertiary)
+		}
+	}
+
+	private func choose() {
+		let p = NSOpenPanel()
+		p.canChooseDirectories = true
+		p.canChooseFiles = false
+		p.canCreateDirectories = true
+		p.directoryURL = downloads.folder
+		p.prompt = "선택"
+		if p.runModal() == .OK, let u = p.url { downloads.folder = u }
+	}
+}
+
+/// "1.2 (빌드 45 · abc1234)" — 버전 · 빌드 번호 · 그 빌드의 커밋 (Scripts/stamp-commit.sh 가 iConsoleCommit 에 넣는다, 커밋 안 한 변경이 섞이면 +)
+var appVersion: String {
+	let info = Bundle.main.infoDictionary ?? [:]
+	let v = info["CFBundleShortVersionString"] as? String ?? "?"
+	let b = info["CFBundleVersion"] as? String ?? "?"
+	if let c = info["iConsoleCommit"] as? String, !c.isEmpty { return "\(v) (빌드 \(b) · \(c))" }
+	return "\(v) (빌드 \(b))"
 }
