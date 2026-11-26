@@ -17,6 +17,11 @@ enum Scripts {
 	    return r.width > 20 && r.height > 10;
 	  };
 	  const all = s => [...document.querySelectorAll(s)];
+	  // 칸 설명: id · name · placeholder · aria-label · 이어진 label 글자
+	  const desc = e => [e.id, e.name, e.placeholder, e.getAttribute('aria-label'), e.getAttribute('autocomplete'),
+	    ...[...(e.labels || [])].map(l => l.textContent),
+	    ...(e.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent || '')].join(' ');
+	  const codeHint = /mfa|otp|one.?time|totp|2fa|verification.?code|security.?code|auth\w*.?code|enter.?code|인증.?코드|보안.?코드|확인.?코드/i;
 	  const done = new WeakSet();
 	  const setVal = (e, v) => {
 	    e.focus();
@@ -61,7 +66,6 @@ enum Scripts {
 	    try {
 	      if (cfg.kind === 'aws') {
 	        // IAM 사용자 로그인 화면(계정 ID·IAM 사용자 이름·암호)이면 채우지 않고 "루트 사용자 이메일로 로그인" 링크로 넘어간다
-	        const desc = e => [e.id, e.name, e.placeholder, e.getAttribute('aria-label'), ...[...(e.labels || [])].map(l => l.textContent)].join(' ');
 	        const iam = all('input').find(e => shown(e) && e.type !== 'hidden' && /^account$|account.?id|alias|계정 ?id|별칭/i.test(desc(e)));
 	        if (iam) {
 	          const link = all('a,button,[role=button],[role=link]').find(e => shown(e) && /root/i.test(e.textContent + ' ' + e.id) && !/iam/i.test(e.textContent));
@@ -84,10 +88,14 @@ enum Scripts {
 	      if (pass) { await fill(pass, 'password', '암호'); return; }
 	      const okCode = e => shown(e) && !done.has(e) && !e.value && e.type !== 'password' && e.type !== 'hidden' && e.type !== 'checkbox' && e.type !== 'radio' && !/captcha/i.test(e.id + e.name);
 	      let code = (F.otp ? [bySpec(F.otp)].filter(Boolean) : all('input[autocomplete=one-time-code],input[id*=mfa i],input[name*=mfa i],input[id*=otp i],input[name*=otp i],input[name=totpPin],input[id=totpPin],input[name*=twofactor i],input[name*=2fa i]')).find(okCode);
-	      // 2단계 인증 화면(구글 /challenge/totp 등)이면 이름이 무엇이든 보이는 빈 글·숫자 칸 하나를 코드 칸으로 본다
+	      const cands = F.otp ? [] : all('input[type=tel],input[type=text],input[type=number],input:not([type])').filter(okCode);
+	      // 칸 이름은 아무것이어도 label · placeholder 가 "MFA code" · "enter code" · "인증 코드" 같으면 코드 칸
+	      // (새 AWS 로그인 화면 "Additional verification required" 의 MFA 칸이 id · name 에 mfa 가 없어 안 채워졌다, 사용자 2026-11-26)
+	      if (!code) code = cands.find(e => codeHint.test(desc(e)));
+	      // 2단계 인증 화면(구글 /challenge/totp 등, 또는 제목이 MFA · verification 인 화면)이면 보이는 빈 글·숫자 칸 하나를 코드 칸으로 본다
 	      // (구글 "Google OTP 앱에서 인증 코드 받기" 칸이 위 이름에 안 걸려 안 채워졌다, 사용자 2026-11-23)
-	      if (!code && /challenge\/totp|totp|mfa|otp|2sv|2fa|two.?step|two.?factor|verif/i.test(location.pathname + location.search)) {
-	        const cands = all('input[type=tel],input[type=text],input[type=number],input:not([type])').filter(okCode);
+	      if (!code && cands.length && (/challenge\/totp|totp|mfa|otp|2sv|2fa|two.?step|two.?factor|verif/i.test(location.pathname + location.search)
+	          || all('h1,h2,h3,legend,[role=heading]').some(h => h.offsetHeight > 0 && /verification|multi.?factor|mfa|two.?step|2단계|인증/i.test(h.textContent)))) {
 	        if (cands.length === 1) code = cands[0];
 	        else if (!loggedNoCode) { loggedNoCode = true; log('2단계 화면인데 코드 칸을 못 정함: ' + all('input').filter(shown).map(e => (e.type || '') + '#' + (e.id || '') + '[' + (e.name || '') + ']').join(' ')); }
 	      }
