@@ -200,6 +200,8 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 	/// 쿠키가 바뀌면 잠깐 모았다가 세션 쿠키를 30일짜리 쿠키로 다시 넣는다 (서버가 정한 만료는 어쩔 수 없다)
 	@ObservationIgnored private var cookieWork: DispatchWorkItem?
 	static let keepSessionDays: Double = 30
+	/// 세션 쿠키를 오래 남길 도메인
+	static let keepDomains = ["apple.com"]
 
 	nonisolated func cookiesDidChange(in store: WKHTTPCookieStore) {
 		Task { @MainActor in self.scheduleCookieKeep(store) }
@@ -216,7 +218,9 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		Task { @MainActor in
 			let cookies = await store.allCookies()
 			var kept = 0
-			for c in cookies where c.isSessionOnly {
+			// 애플 도메인만 (애플 개발자 로그인 쿠키 myacinfo 등이 세션 쿠키라 넣은 것).
+			// 모든 사이트에 했더니 네이버처럼 세션 쿠키(NID_SES)를 계속 바꾸는 곳은 다시 써 넣은 쿠키와 꼬여 새로고침하면 로그아웃됐다 (사용자 2026-11-26)
+			for c in cookies where c.isSessionOnly && Self.keepDomains.contains(where: { c.domain.trimmingCharacters(in: CharacterSet(charactersIn: ".")).hasSuffix($0) }) {
 				var p = c.properties ?? [:]
 				p.removeValue(forKey: .discard)
 				p.removeValue(forKey: .maximumAge)
