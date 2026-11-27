@@ -201,14 +201,14 @@ private struct GeneralSettingsPage: View {
 					Text("다크 모드").tag("dark")
 				}
 			} footer: {
-				Text("웹 페이지(다크 모드를 지원하는 사이트)만 이 모드로 보입니다. 앱은 늘 시스템 설정을 따릅니다.").foregroundStyle(.tertiary)
+				Text("웹 페이지(다크 모드를 지원하는 사이트)만 이 모드로 보입니다. 앱은 늘 시스템 설정을 따릅니다.")
 			}
 			Section {
 				Toggle("채운 뒤 다음 버튼까지 누르기", isOn: $model.autoSubmit)
 			} header: {
 				Text("로그인 채우기")
 			} footer: {
-				Text("끄면 칸만 채우고 엔터는 직접 누릅니다. CAPTCHA 가 보이면 켜 두어도 누르지 않습니다.").foregroundStyle(.tertiary)
+				Text("끄면 칸만 채우고 엔터는 직접 누릅니다. CAPTCHA 가 보이면 켜 두어도 누르지 않습니다.")
 			}
 			Section {
 				Picker("번역할 언어", selection: Binding(get: { PageTranslator.shared.target }, set: { PageTranslator.shared.target = $0 })) {
@@ -217,7 +217,7 @@ private struct GeneralSettingsPage: View {
 			} header: {
 				Text("번역")
 			} footer: {
-				Text("주소칸의 번역 버튼(⌥⌘T)은 애플 번역으로 이 맥 안에서 번역합니다. 처음 쓰는 언어는 언어 파일을 내려받을지 묻습니다.").foregroundStyle(.tertiary)
+				Text("주소칸의 번역 버튼(⌥⌘T)은 애플 번역으로 이 맥 안에서 번역합니다. 처음 쓰는 언어는 언어 파일을 내려받을지 묻습니다.")
 			}
 			DownloadSection()
 			Section {
@@ -225,7 +225,7 @@ private struct GeneralSettingsPage: View {
 			} header: {
 				Text("웹")
 			} footer: {
-				Text("사이트가 앱 안 웹뷰를 막을 때 켭니다.").foregroundStyle(.tertiary)
+				Text("사이트가 앱 안 웹뷰를 막을 때 켭니다.")
 			}
 			UpdateSection(version: version)
 		}
@@ -369,7 +369,7 @@ private struct UpdateSection: View {
 		} header: {
 			Text("업데이트")
 		} footer: {
-			Text("하루에 한 번 새 버전이 있는지 확인하고, 있으면 설치할지 묻습니다.").foregroundStyle(.tertiary)
+			Text("하루에 한 번 새 버전이 있는지 확인하고, 있으면 설치할지 묻습니다.")
 		}
 	}
 }
@@ -404,7 +404,7 @@ private struct PasswordsSettingsPage: View {
 			} header: {
 				Text("암호 앱에서 가져오기")
 			} footer: {
-				Text("목록에 iConsole 이 안 보이면 시스템 설정 > 일반 > 자동 완성 및 암호 에서 iConsole 을 켜 보세요.").foregroundStyle(.tertiary)
+				Text("목록에 iConsole 이 안 보이면 시스템 설정 > 일반 > 자동 완성 및 암호 에서 iConsole 을 켜 보세요.")
 			}
 			Section {
 				Toggle("Safari · Chrome 에서 iConsole 계정 암호 자동 완성", isOn: $autofill.enabled)
@@ -412,7 +412,6 @@ private struct PasswordsSettingsPage: View {
 				Text("브라우저 자동 완성")
 			} footer: {
 				Text("끄면 iConsole 확장이 켜져 있어도 아무것도 채우지 않습니다 (애플 암호는 그대로). 켜면 iConsole 계정의 로그인 도메인에서 iConsole 암호를 추천합니다. 시스템 설정에서 iConsole 확장도 켜야 합니다.")
-					.foregroundStyle(.tertiary)
 			}
 		}
 		.formStyle(.grouped)
@@ -442,7 +441,7 @@ private struct DownloadSection: View {
 		} header: {
 			Text("다운로드")
 		} footer: {
-			Text("매번 묻기를 고르면 받을 때마다 저장할 곳과 이름을 고릅니다.").foregroundStyle(.tertiary)
+			Text("매번 묻기를 고르면 받을 때마다 저장할 곳과 이름을 고릅니다.")
 		}
 	}
 
