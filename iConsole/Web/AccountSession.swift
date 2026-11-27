@@ -111,6 +111,12 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 	}
 
 	/// 옆 탭으로 (⌃Tab · ⌃⇧Tab)
+	/// ⌘1 ~ ⌘8 은 n 번째 탭, ⌘9 는 마지막 탭
+	func select(at n: Int) {
+		guard let t = n >= 9 ? tabs.last : (n <= tabs.count ? tabs[n - 1] : nil) else { return }
+		select(t.id)
+	}
+
 	func cycle(_ step: Int) {
 		guard let i = tabs.firstIndex(where: { $0.id == activeID }), tabs.count > 1 else { return }
 		select(tabs[(i + step + tabs.count) % tabs.count].id)
@@ -336,20 +342,58 @@ final class AccountSession: NSObject, WKNavigationDelegate, WKUIDelegate, WKScri
 		}
 	}
 
+	// 사이트가 띄우는 창 (alert · confirm · prompt · 파일 고르기): Safari 처럼 그 창에만 붙는 시트로, 어느 사이트가 띄웠는지 위에 보인다.
+	// 창에 붙지 않은 웹뷰(뒤에 있는 탭)면 그냥 띄운다
+
+	private func pageAlert(_ message: String, _ frame: WKFrameInfo) -> NSAlert {
+		let a = NSAlert()
+		let host = frame.securityOrigin.host
+		a.messageText = host.isEmpty ? "이 페이지:" : "\(host) 페이지:"
+		a.informativeText = message
+		return a
+	}
+
+	private func present(_ a: NSAlert, on w: WKWebView) async -> NSApplication.ModalResponse {
+		if let win = w.window, win.attachedSheet == nil {
+			return await withCheckedContinuation { c in a.beginSheetModal(for: win) { c.resume(returning: $0) } }
+		}
+		return a.runModal()
+	}
+
 	func webView(_ w: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo) async {
-		let a = NSAlert(); a.messageText = message; a.runModal()
+		let a = pageAlert(message, frame)
+		a.addButton(withTitle: "확인")
+		_ = await present(a, on: w)
 	}
 
 	func webView(_ w: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo) async -> Bool {
-		let a = NSAlert(); a.messageText = message; a.addButton(withTitle: "확인"); a.addButton(withTitle: "취소")
-		return a.runModal() == .alertFirstButtonReturn
+		let a = pageAlert(message, frame)
+		a.addButton(withTitle: "확인"); a.addButton(withTitle: "취소")
+		return await present(a, on: w) == .alertFirstButtonReturn
+	}
+
+	/// prompt() — 없으면 WebKit 이 바로 null(취소)을 돌려준다 (콘솔의 "지우려면 이름 입력" 같은 확인이 안 됐다)
+	func webView(_ w: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo) async -> String? {
+		let a = pageAlert(prompt, frame)
+		a.addButton(withTitle: "확인"); a.addButton(withTitle: "취소")
+		let f = NSTextField(string: defaultText ?? "")
+		f.frame = NSRect(x: 0, y: 0, width: 300, height: 24)
+		a.accessoryView = f
+		a.window.initialFirstResponder = f
+		return await present(a, on: w) == .alertFirstButtonReturn ? f.stringValue : nil
 	}
 
 	func webView(_ w: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo) async -> [URL]? {
 		let p = NSOpenPanel()
 		p.allowsMultipleSelection = parameters.allowsMultipleSelection
 		p.canChooseDirectories = parameters.allowsDirectories
-		return p.runModal() == .OK ? p.urls : nil
+		let r: NSApplication.ModalResponse
+		if let win = w.window, win.attachedSheet == nil {
+			r = await withCheckedContinuation { c in p.beginSheetModal(for: win) { c.resume(returning: $0) } }
+		} else {
+			r = p.runModal()
+		}
+		return r == .OK ? p.urls : nil
 	}
 
 	// MARK: 페이지 기록 (page 세계)

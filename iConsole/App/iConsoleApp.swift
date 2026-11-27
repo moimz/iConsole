@@ -70,9 +70,31 @@ struct AppCommands: Commands {
 			Button("창 닫기") { NSApp.keyWindow?.performClose(nil) }
 				.keyboardShortcut("w", modifiers: [.command, .shift])
 		}
+		// 파일 > PDF로 내보내기 · 프린트 (Safari 처럼)
+		CommandGroup(replacing: .printItem) {
+			Button("PDF로 내보내기…") { if let tab { PagePrinter.exportPDF(tab) } }
+				.disabled(tab?.url == nil)
+			Button("프린트…") { if let tab { PagePrinter.print(tab) } }
+				.keyboardShortcut("p")
+				.disabled(tab?.url == nil)
+		}
+		// 편집 > 찾기 (Safari 처럼). 기본 찾기 메뉴는 웹뷰에선 꺼져 있어 우리 찾기 줄로 바꾼다
+		CommandGroup(replacing: .textEditing) {
+			Menu("찾기") {
+				Button("찾기…") { PageFinder.shared.show() }.keyboardShortcut("f")
+				Button("다음 찾기") { PageFinder.shared.step(1) }.keyboardShortcut("g")
+				Button("이전 찾기") { PageFinder.shared.step(-1) }.keyboardShortcut("g", modifiers: [.command, .shift])
+				Button("고른 글자로 찾기") { PageFinder.shared.useSelection() }.keyboardShortcut("e")
+				Button("찾기 줄 닫기") { PageFinder.shared.hide() }.disabled(!PageFinder.shared.shown)
+			}
+			.disabled(tab == nil)
+		}
 		CommandMenu("탐색") {
 			Button("주소칸") { model.address.focus() }.keyboardShortcut("l")
 			Button("새로고침") { tab?.webView.reload() }.keyboardShortcut("r").disabled(tab == nil)
+			// 캐시를 쓰지 않고 서버에서 다시 (Safari ⌥⌘R)
+			Button("캐시 없이 새로고침") { tab?.webView.reloadFromOrigin() }.keyboardShortcut("r", modifiers: [.command, .option]).disabled(tab == nil)
+			Button("멈추기") { tab?.webView.stopLoading() }.keyboardShortcut(".").disabled(tab?.isLoading != true)
 			Button(tab?.translated == true ? "원문 보기" : "이 페이지 번역") { if let tab { PageTranslator.shared.toggle(tab) } }
 				.keyboardShortcut("t", modifiers: [.command, .option])
 				.disabled(tab?.url == nil)
@@ -83,6 +105,14 @@ struct AppCommands: Commands {
 			Button("이전 탭") { session?.cycle(-1) }.keyboardShortcut(.tab, modifiers: [.control, .shift])
 			Button("다음 탭 ") { session?.cycle(1) }.keyboardShortcut("]", modifiers: [.command, .shift])
 			Button("이전 탭 ") { session?.cycle(-1) }.keyboardShortcut("[", modifiers: [.command, .shift])
+			// ⌘1 ~ ⌘8 은 그 번째 탭, ⌘9 는 마지막 탭 (Safari 처럼)
+			Menu("탭으로 가기") {
+				ForEach(1...9, id: \.self) { n in
+					Button(n == 9 ? "마지막 탭" : "\(n)번째 탭") { session?.select(at: n) }
+						.keyboardShortcut(KeyEquivalent(Character("\(n)")))
+				}
+			}
+			.disabled(session?.tabs.isEmpty != false)
 			Divider()
 			Button(model.favorite(for: tab?.url, in: model.currentID) != nil ? "즐겨찾기 편집…" : "즐겨찾기에 추가…") { model.editFavorite() }
 				.keyboardShortcut("d")

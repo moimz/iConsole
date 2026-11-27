@@ -8,6 +8,7 @@ struct BrowserPane: View {
 	@Environment(AppModel.self) private var model
 	let session: AccountSession
 	private var downloads = Downloads.shared
+	private var finder = PageFinder.shared
 
 	private var tab: WebTab? { session.active }
 
@@ -17,6 +18,10 @@ struct BrowserPane: View {
 			Divider()
 			TabBar(session: session)
 			Divider()
+			if finder.shown {
+				FindBar()
+				Divider()
+			}
 			ZStack(alignment: .top) {
 				WebArea(webView: tab?.webView)
 				if session.tabs.isEmpty {
@@ -32,6 +37,9 @@ struct BrowserPane: View {
 				}
 			}
 		}
+		// 찾기 줄이 열려 있으면 탭을 바꾸거나 페이지를 다 읽었을 때 다시 찾는다
+		.onChange(of: tab?.id) { finder.search() }
+		.onChange(of: tab?.isLoading) { _, loading in if loading == false { finder.search() } }
 		// 번역 언어 파일이 없을 때만: 받기 창 (번역 자체는 PageTranslator 가 직접 만든 세션으로)
 		.translationTask(PageTranslator.shared.downloadConfiguration) { session in
 			await PageTranslator.shared.prepare(session)
@@ -81,7 +89,7 @@ struct BrowserPane: View {
 					}
 					.buttonStyle(.plain)
 					.disabled(tab == nil)
-					.help(tab?.isLoading == true ? "멈추기" : "새로고침 (⌘R)")
+					.help(tab?.isLoading == true ? "멈추기 (⌘.)" : "새로고침 (⌘R)")
 				}
 				.padding(.horizontal, 6)
 				// 읽는 중: Safari 처럼 주소 알약 아래쪽에 얇은 진행 막대

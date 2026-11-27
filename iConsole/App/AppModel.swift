@@ -52,6 +52,7 @@ final class AppModel {
 		Autofill.shared.model = self
 		PasswordImport.shared.model = self
 		Downloads.shared.model = self
+		PageFinder.shared.model = self
 		Task { await Autofill.shared.refreshState() }
 		MCPServer.shared.startIfEnabled()
 		NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
